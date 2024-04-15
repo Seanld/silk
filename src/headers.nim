@@ -1,17 +1,31 @@
+import std/asyncnet
+import std/asyncdispatch
+import std/tables
+import std/strutils
+import std/times
+
+import ./status
+
 const
   REQ_HEADER_LINE_MAX_LEN = 1024
 
 type HeaderField = tuple[key: string, val: string]
 
-proc newResponseHeader(code: uint16, headerFields: varargs[HeaderField]): string =
-  var responseHeader = ""
-
-  responseHeader.add("HTTP/1.1 " & $code & " " & STATUS_CODE_MAPPING[code] & "\r\n")
+proc fmtResponseHeader*(code: StatusCode, headerFields: varargs[HeaderField]): string =
+  var responseHeader = "HTTP/1.1 " & $code.ord() & " " & STATUS_CODE_MAPPING[code.ord()] & "\r\n"
 
   for f in headerFields:
     responseHeader.add(f.key & ": " & f.val & "\r\n")
 
   return responseHeader
+
+proc newResponse*(code: StatusCode): string =
+  let time = now().format("ddd, dd MMM yyyy hh:mm:ss z")
+  return fmtResponseHeader(
+    code,
+    ("Server", "Silk"),
+    ("Date", time),
+  )
 
 type RequestHeader* = object
   action*: string
@@ -19,7 +33,7 @@ type RequestHeader* = object
   protocol*: string
   fields*: ref Table[string, string]
 
-proc parseReqHeader(reqHeaderStr: string): RequestHeader =
+proc parseReqHeader*(reqHeaderStr: string): RequestHeader =
   var
     headerLines = reqHeaderStr.splitLines()
     fieldsTable = newTable[string, string]()
@@ -38,7 +52,7 @@ proc parseReqHeader(reqHeaderStr: string): RequestHeader =
 
   return newHeader
 
-proc recvReqHeader(client: AsyncSocket): Future[string] {.async.} =
+proc recvReqHeader*(client: AsyncSocket): Future[string] {.async.} =
   var result = ""
   while true:
     let line = await client.recvLine(maxLength = REQ_HEADER_LINE_MAX_LEN)

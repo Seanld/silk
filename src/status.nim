@@ -1,4 +1,6 @@
-const statusCodeMapping = {
+from std/tables import toTable
+
+const STATUS_CODE_MAPPING* = {
   100: "Continue",
   101: "Switching Protocols",
   102: "Processing",
@@ -65,9 +67,9 @@ const statusCodeMapping = {
   508: "Loop Detected",
   510: "Not Extended",
   511: "Network Authentication Required",
-}
+}.toTable
 
-type StatusCode = enum
+type StatusCode* = enum
   STATUS_CONTINUE = 100
   STATUS_SWITCHING_PROTOCOLS = 101
   STATUS_PROCESSING = 102

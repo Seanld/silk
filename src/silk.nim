@@ -1,27 +1,38 @@
 import std/asyncnet
 import std/asyncdispatch
-import std/tables
-import std/strutils
-include ./status
-include ./headers
 
-proc handleClient(client: AsyncSocket) {.async.} =
+import ./status
+import ./headers
+
+type Server* = ref object
+  host*: string
+  port*: Port
+  # How many clients to handle at one time, before new connections are dropped.
+  maxClients* = 100
+
+  clients: seq[AsyncSocket]
+
+proc newServer*(host: string, port: Port, maxClients: int = 100): Server =
+  return Server(
+    host: host,
+    port: port,
+    maxClients: maxClients,
+
+    clients: newSeq[AsyncSocket](),
+  )
+
+proc handleClient(s: Server, client: AsyncSocket) {.async.} =
   var
     reqHeader = (await client.recvReqHeader()).parseReqHeader()
     resp = ""
 
   if reqHeader.path == "/test":
-    resp = newResponseHeader(200, ("Server", "Silk"), ("Test", "Hello, world!"))
+    resp = fmtResponseHeader(STATUS_OK, ("Server", "Silk"), ("Test", "Hello, world!"))
   else:
-    resp = newResponseHeader(400, ("Server", "Silk"), ("Msg", "Ruh roh raggy!"))
+    resp = fmtResponseHeader(STATUS_BAD_REQUEST, ("Server", "Silk"), ("Msg", "Ruh roh raggy!"))
 
   await client.send(resp)
   client.close()
-
-type Server* = object
-  host*: string
-  port*: Port
-  maxClients*: uint64 = 100
 
 proc serve(s: Server) {.async.} =
   var server = newAsyncSocket()
@@ -30,8 +41,11 @@ proc serve(s: Server) {.async.} =
   server.listen()
 
   while true:
+    if s.clients.len == s.maxClients:
+      continue
     let client = await server.accept()
-    asyncCheck handleClient(client)
+    s.clients.add(client)
+    asyncCheck s.handleClient(client)
 
 proc start*(s: Server) =
   asyncCheck s.serve()
