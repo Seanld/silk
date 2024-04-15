@@ -14,7 +14,7 @@ let STATUS_CODE_MAPPING = {
 
 type HeaderField = tuple[key: string, val: string]
 
-proc newResponseHeader*(code: uint16, headerFields: varargs[HeaderField]): string =
+proc newResponseHeader(code: uint16, headerFields: varargs[HeaderField]): string =
   var responseHeader = ""
 
   responseHeader.add($code & " " & STATUS_CODE_MAPPING[code] & "\r\n")
@@ -30,10 +30,11 @@ type RequestHeader* = object
   protocol*: string
   fields*: ref Table[string, string]
 
-proc recvReqHeader*(client: AsyncSocket): Future[RequestHeader] {.async.} =
+proc parseReqHeader(reqHeaderStr: string): RequestHeader =
   var
+    headerLines = reqHeaderStr.splitLines()
     fieldsTable = newTable[string, string]()
-    methodLine = (await client.recvLine(maxLength = REQ_HEADER_LINE_MAX_LEN)).split(" ")
+    methodLine = headerLines[0].split(" ")
 
   var newHeader = RequestHeader(
     action: methodLine[0],
@@ -42,38 +43,51 @@ proc recvReqHeader*(client: AsyncSocket): Future[RequestHeader] {.async.} =
     fields: fieldsTable,
   )
 
-  while true:
-    let line = await client.recvLine(maxLength = REQ_HEADER_LINE_MAX_LEN)
-    if line == "\r\n":
-      break
+  for line in headerLines[1..^1]:
     let splitted = line.split(": ")
     fieldsTable[splitted[0]] = splitted[1]
 
   return newHeader
 
-proc handleClient*(client: AsyncSocket) {.async.} =
+proc recvReqHeader(client: AsyncSocket): Future[string] {.async.} =
+  var result = ""
+  while true:
+    let line = await client.recvLine(maxLength = REQ_HEADER_LINE_MAX_LEN)
+    if line == "\r\n":
+      break
+    result.add(result)
+  return result
+
+proc handleClient(client: AsyncSocket) {.async.} =
   var
-    header = await client.recvReqHeader()
+    reqHeader = (await client.recvReqHeader()).parseReqHeader()
     resp = ""
 
-  if header.path == "/test":
-    resp = newResponseHeader(200, ("Server", "Silk"), ("Test", "Hello, world!"))
-  else:
-    resp = newResponseHeader(400, ("Server", "Silk"), ("Msg", "Ruh roh raggy!"))
+  echo repr(reqHeader)
 
-  await client.send(resp)
-  client.close()
+  # if reqHeader.path == "/test":
+  #   resp = newResponseHeader(200, ("Server", "Silk"), ("Test", "Hello, world!"))
+  # else:
+  #   resp = newResponseHeader(400, ("Server", "Silk"), ("Msg", "Ruh roh raggy!"))
 
-proc serve*() {.async.} =
+  # await client.send(resp)
+  # client.close()
+
+type Server* = object
+  host*: string
+  port*: Port
+  maxClients*: uint64
+
+proc serve(s: Server) {.async.} =
   var server = newAsyncSocket()
   server.setSockOpt(OptReuseAddr, true)
-  server.bindAddr(Port(8080), "0.0.0.0")
+  server.bindAddr(s.port, s.host)
   server.listen()
 
   while true:
     let client = await server.accept()
     asyncCheck handleClient(client)
 
-proc start*() {.async.} =
+proc start*(s: Server) =
   asyncCheck serve()
   runForever()
