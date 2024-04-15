@@ -9,46 +9,56 @@ import ./status
 const
   REQ_HEADER_LINE_MAX_LEN = 1024
 
-type HeaderField = tuple[key: string, val: string]
+type HeaderTable = TableRef[string, string]
 
-proc fmtResponseHeader*(code: StatusCode, headerFields: varargs[HeaderField]): string =
-  var responseHeader = "HTTP/1.1 " & $code.ord() & " " & STATUS_CODE_MAPPING[code.ord()] & "\r\n"
+type ResponseHeader = object
+  protocol*: string
+  status*: StatusCode
+  headerFields*: HeaderTable
 
-  for f in headerFields:
-    responseHeader.add(f.key & ": " & f.val & "\r\n")
+proc fmtResponseHeader*(h: ResponseHeader): string =
+  var responseHeader = "HTTP/1.1 " & $h.status.ord() & " " & STATUS_CODE_MAPPING[h.status.ord()] & "\r\n"
+
+  for k, v in pairs(h.headerFields):
+    responseHeader.add(k & ": " & v & "\r\n")
 
   return responseHeader
 
-proc newResponse*(code: StatusCode): string =
+proc newResponse*(status: StatusCode): string =
   let time = now().utc.format("ddd, dd MMM yyyy hh:mm:ss 'GMT'")
   return fmtResponseHeader(
-    code,
-    ("Server", "Silk"),
-    ("Date", time),
+    ResponseHeader(
+      protocol: "HTTP/1.1",
+      status: status,
+      headerFields: {
+        "Server": "Silk",
+        "Date": time,
+      }.newTable,
+    )
   )
 
 type RequestHeader* = object
   action*: string
   path*: string
   protocol*: string
-  fields*: ref Table[string, string]
+  headerFields*: HeaderTable
 
 proc parseReqHeader*(reqHeaderStr: string): RequestHeader =
   var
     headerLines = reqHeaderStr.splitLines()
-    fieldsTable = newTable[string, string]()
+    headerFields = newTable[string, string]()
     methodLine = headerLines[0].split(" ")
 
   var newHeader = RequestHeader(
     action: methodLine[0],
     path: methodLine[1],
     protocol: methodLine[2],
-    fields: fieldsTable,
+    headerFields: headerFields,
   )
 
   for line in headerLines[1..^2]:
     let splitted = line.split(": ")
-    fieldsTable[splitted[0]] = splitted[1]
+    headerFields[splitted[0]] = splitted[1]
 
   return newHeader
 

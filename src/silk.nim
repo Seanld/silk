@@ -1,35 +1,42 @@
 import std/asyncnet
 import std/asyncdispatch
+import std/tables
 
 import ./status
 import ./headers
+import ./context
+import ./router
+
+export status
+export headers
+export context
+export router
 
 type Server* = ref object
   host*: string
   port*: Port
+
   # How many clients to handle at one time, before new connections are dropped.
   maxClients* = 100
 
-  clients: seq[AsyncSocket]
+  # Manages routing of paths to handlers.
+  router*: Router
 
 proc newServer*(host: string, port: Port, maxClients: int = 100): Server =
   return Server(
     host: host,
     port: port,
     maxClients: maxClients,
+    router: newRouter(),
   )
 
-proc handleClient(s: Server, client: AsyncSocket) {.async.} =
+proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   var
     reqHeader = (await client.recvReqHeader()).parseReqHeader()
-    resp = ""
+    ctx = newContext(client)
 
-  if reqHeader.path == "/test":
-    resp = newResponse(STATUS_OK)
-  else:
-    resp = newResponse(STATUS_BAD_REQUEST)
+  await s.router.handleRoute(reqHeader.path, ctx)
 
-  await client.send(resp)
   client.close()
 
 proc serve(s: Server) {.async.} =
@@ -39,10 +46,8 @@ proc serve(s: Server) {.async.} =
   server.listen()
 
   while true:
-    if s.clients.len == s.maxClients:
-      continue
     let client = await server.accept()
-    asyncCheck s.handleClient(client)
+    asyncCheck s.dispatchClient(client)
 
 proc start*(s: Server) =
   asyncCheck s.serve()
