@@ -17,8 +17,6 @@ proc newServer*(host: string, port: Port, maxClients: int = 100): Server =
     host: host,
     port: port,
     maxClients: maxClients,
-
-    clients: newSeq[AsyncSocket](),
   )
 
 proc handleClient(s: Server, client: AsyncSocket) {.async.} =
@@ -27,9 +25,9 @@ proc handleClient(s: Server, client: AsyncSocket) {.async.} =
     resp = ""
 
   if reqHeader.path == "/test":
-    resp = fmtResponseHeader(STATUS_OK, ("Server", "Silk"), ("Test", "Hello, world!"))
+    resp = newResponse(STATUS_OK)
   else:
-    resp = fmtResponseHeader(STATUS_BAD_REQUEST, ("Server", "Silk"), ("Msg", "Ruh roh raggy!"))
+    resp = newResponse(STATUS_BAD_REQUEST)
 
   await client.send(resp)
   client.close()
@@ -44,7 +42,6 @@ proc serve(s: Server) {.async.} =
     if s.clients.len == s.maxClients:
       continue
     let client = await server.accept()
-    s.clients.add(client)
     asyncCheck s.handleClient(client)
 
 proc start*(s: Server) =

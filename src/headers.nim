@@ -20,7 +20,7 @@ proc fmtResponseHeader*(code: StatusCode, headerFields: varargs[HeaderField]): s
   return responseHeader
 
 proc newResponse*(code: StatusCode): string =
-  let time = now().format("ddd, dd MMM yyyy hh:mm:ss z")
+  let time = now().utc.format("ddd, dd MMM yyyy hh:mm:ss 'GMT'")
   return fmtResponseHeader(
     code,
     ("Server", "Silk"),
