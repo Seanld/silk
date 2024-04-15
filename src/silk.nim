@@ -17,7 +17,7 @@ type HeaderField = tuple[key: string, val: string]
 proc newResponseHeader(code: uint16, headerFields: varargs[HeaderField]): string =
   var responseHeader = ""
 
-  responseHeader.add($code & " " & STATUS_CODE_MAPPING[code] & "\r\n")
+  responseHeader.add("HTTP/1.1 " & $code & " " & STATUS_CODE_MAPPING[code] & "\r\n")
 
   for f in headerFields:
     responseHeader.add(f.key & ": " & f.val & "\r\n")
@@ -43,7 +43,7 @@ proc parseReqHeader(reqHeaderStr: string): RequestHeader =
     fields: fieldsTable,
   )
 
-  for line in headerLines[1..^1]:
+  for line in headerLines[1..^2]:
     let splitted = line.split(": ")
     fieldsTable[splitted[0]] = splitted[1]
 
@@ -55,7 +55,7 @@ proc recvReqHeader(client: AsyncSocket): Future[string] {.async.} =
     let line = await client.recvLine(maxLength = REQ_HEADER_LINE_MAX_LEN)
     if line == "\r\n":
       break
-    result.add(result)
+    result.add(line & "\r\n")
   return result
 
 proc handleClient(client: AsyncSocket) {.async.} =
@@ -63,15 +63,13 @@ proc handleClient(client: AsyncSocket) {.async.} =
     reqHeader = (await client.recvReqHeader()).parseReqHeader()
     resp = ""
 
-  echo repr(reqHeader)
+  if reqHeader.path == "/test":
+    resp = newResponseHeader(200, ("Server", "Silk"), ("Test", "Hello, world!"))
+  else:
+    resp = newResponseHeader(400, ("Server", "Silk"), ("Msg", "Ruh roh raggy!"))
 
-  # if reqHeader.path == "/test":
-  #   resp = newResponseHeader(200, ("Server", "Silk"), ("Test", "Hello, world!"))
-  # else:
-  #   resp = newResponseHeader(400, ("Server", "Silk"), ("Msg", "Ruh roh raggy!"))
-
-  # await client.send(resp)
-  # client.close()
+  await client.send(resp)
+  client.close()
 
 type Server* = object
   host*: string
@@ -89,5 +87,5 @@ proc serve(s: Server) {.async.} =
     asyncCheck handleClient(client)
 
 proc start*(s: Server) =
-  asyncCheck serve()
+  asyncCheck s.serve()
   runForever()
