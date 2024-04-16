@@ -1,11 +1,13 @@
 import std/asyncnet
 import std/asyncdispatch
 import std/tables
+from std/math import `^`
 
 import ./status
 import ./headers
 import ./context
 import ./router
+import ./middleware
 
 export status
 export headers
@@ -18,6 +20,8 @@ type Server* = ref object
 
   # How many clients to handle at one time, before new connections are dropped.
   maxClients* = 100
+  # Limit content body size to a max size of 256 megabytes by default.
+  maxContentLen* = 2^28
 
   # Manages routing of paths to handlers.
   router*: Router
@@ -31,8 +35,10 @@ proc newServer*(host: string, port: Port, maxClients: int = 100): Server =
   )
 
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
-  var reqHeader = parseReqHeader(await recvReqHeaderStr(client))
-  await s.router.dispatchRoute(reqHeader.path, newContext(client))
+  ## Executed as soon as a new connection is made.
+  # let headerStr = await recvReqHeaderStr()
+  var req = await client.recvReq(s.maxContentLen)
+  await s.router.dispatchRoute(req, newContext(client, req))
   client.close()
 
 proc serve(s: Server) {.async.} =
