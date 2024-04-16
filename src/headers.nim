@@ -6,8 +6,7 @@ import std/times
 
 import ./status
 
-const
-  REQ_HEADER_LINE_MAX_LEN = 1024
+const REQ_HEADER_LINE_MAX_LEN = 1024
 
 type HeaderTable = TableRef[string, string]
 
@@ -16,7 +15,7 @@ type ResponseHeader = object
   status*: StatusCode
   headerFields*: HeaderTable
 
-proc fmtResponseHeader*(h: ResponseHeader): string =
+proc toString*(h: ResponseHeader): string =
   var responseHeader = "HTTP/1.1 " & $h.status.ord() & " " & STATUS_CODE_MAPPING[h.status.ord()] & "\r\n"
 
   for k, v in pairs(h.headerFields):
@@ -24,7 +23,7 @@ proc fmtResponseHeader*(h: ResponseHeader): string =
 
   return responseHeader
 
-proc newResponse*(status: StatusCode, headerTable: HeaderTable = nil): string =
+proc newResponseHeader*(status: StatusCode, headerTable: HeaderTable = nil): ResponseHeader =
   let time = now().utc.format("ddd, dd MMM yyyy hh:mm:ss 'GMT'")
   var headerFields: HeaderTable
 
@@ -36,12 +35,10 @@ proc newResponse*(status: StatusCode, headerTable: HeaderTable = nil): string =
   else:
     headerFields = headerTable
 
-  return fmtResponseHeader(
-    ResponseHeader(
-      protocol: "HTTP/1.1",
-      status: status,
-      headerFields: headerFields,
-    )
+  return ResponseHeader(
+    protocol: "HTTP/1.1",
+    status: status,
+    headerFields: headerFields,
   )
 
 type RequestHeader* = object
