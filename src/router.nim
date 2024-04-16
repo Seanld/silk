@@ -1,15 +1,21 @@
 import std/tables
 import std/asyncdispatch
 import ./context
+import ./status
 
 type RouteHandler* = proc (ctx: Context) {.async.}
 type RouteTable* = TableRef[string, RouteHandler]
+
+# Even if the user of the library doesn't set their own `defaultHandler`,
+# this handler will be used.
+proc internalDefaultHandler(ctx: Context) {.async.} =
+  await ctx.noContent(STATUS_BAD_REQUEST)
 
 type Router* = object
   routes: RouteTable
 
   # Called when no routes were matched.
-  defaultHandler*: RouteHandler
+  defaultHandler* = internalDefaultHandler
 
 proc newRouter*(routeTable: RouteTable = nil): Router =
   var table: RouteTable
@@ -23,10 +29,10 @@ proc newRouter*(routeTable: RouteTable = nil): Router =
     routes: table,
   )
 
-proc addRoute*(r: Router, path: string, handler: RouteHandler) =
+proc route*(r: Router, path: string, handler: RouteHandler) =
   r.routes[path] = handler
 
-proc handleRoute*(r: Router, path: string, ctx: Context) {.async.} =
+proc dispatchRoute*(r: Router, path: string, ctx: Context) {.async.} =
   try:
     await r.routes[path](ctx)
   except KeyError:

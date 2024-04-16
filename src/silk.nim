@@ -31,8 +31,8 @@ proc newServer*(host: string, port: Port, maxClients: int = 100): Server =
   )
 
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
-  var reqHeader = (await client.recvReqHeader()).parseReqHeader()
-  await s.router.handleRoute(reqHeader.path, newContext(client))
+  var reqHeader = parseReqHeader(await recvReqHeaderStr(client))
+  await s.router.dispatchRoute(reqHeader.path, newContext(client))
   client.close()
 
 proc serve(s: Server) {.async.} =

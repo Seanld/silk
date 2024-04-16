@@ -14,16 +14,19 @@ type ResponseHeader = object
   protocol*: string
   status*: StatusCode
   headerFields*: HeaderTable
+  content*: string
 
-proc toString*(h: ResponseHeader): string =
-  var responseHeader = "HTTP/1.1 " & $h.status.ord() & " " & STATUS_CODE_MAPPING[h.status.ord()] & "\r\n"
+proc `$`*(h: ResponseHeader): string =
+  var responseHeader = h.protocol & " " & $h.status.ord() & " " & STATUS_CODE_MAPPING[h.status.ord()] & "\r\n"
 
   for k, v in pairs(h.headerFields):
     responseHeader.add(k & ": " & v & "\r\n")
 
+  responseHeader.add("\r\n" & h.content)
+
   return responseHeader
 
-proc newResponseHeader*(status: StatusCode, headerTable: HeaderTable = nil): ResponseHeader =
+proc newResponseHeader*(status: StatusCode, headerTable: HeaderTable = nil, content: string = ""): ResponseHeader =
   let time = now().utc.format("ddd, dd MMM yyyy hh:mm:ss 'GMT'")
   var headerFields: HeaderTable
 
@@ -39,6 +42,7 @@ proc newResponseHeader*(status: StatusCode, headerTable: HeaderTable = nil): Res
     protocol: "HTTP/1.1",
     status: status,
     headerFields: headerFields,
+    content: content,
   )
 
 type RequestHeader* = object
@@ -66,7 +70,7 @@ proc parseReqHeader*(reqHeaderStr: string): RequestHeader =
 
   return newHeader
 
-proc recvReqHeader*(client: AsyncSocket): Future[string] {.async.} =
+proc recvReqHeaderStr*(client: AsyncSocket): Future[string] {.async.} =
   var result = ""
   while true:
     let line = await client.recvLine(maxLength = REQ_HEADER_LINE_MAX_LEN)
@@ -74,3 +78,6 @@ proc recvReqHeader*(client: AsyncSocket): Future[string] {.async.} =
       break
     result.add(line & "\r\n")
   return result
+
+proc recvReqHeader*(client: AsyncSocket): RequestHeader =
+  return parseReqHeader(waitFor recvReqHeaderStr(client))
