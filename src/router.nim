@@ -29,8 +29,8 @@ proc newRouter*(routeTable: RouteTable = nil): Router =
     routes: table,
   )
 
-proc route*(r: Router, path: string, handler: RouteHandler) =
-  r.routes[path] = handler
+proc GET*(r: Router, path: string, handler: RouteHandler) =
+  r.routes["GET: " & path] = handler
 
 proc dispatchRoute*(r: Router, path: string, ctx: Context) {.async.} =
   try:
