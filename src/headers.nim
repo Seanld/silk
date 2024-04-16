@@ -24,16 +24,23 @@ proc fmtResponseHeader*(h: ResponseHeader): string =
 
   return responseHeader
 
-proc newResponse*(status: StatusCode): string =
+proc newResponse*(status: StatusCode, headerTable: HeaderTable = nil): string =
   let time = now().utc.format("ddd, dd MMM yyyy hh:mm:ss 'GMT'")
+  var headerFields: HeaderTable
+
+  if headerTable == nil:
+    headerFields = {
+      "Server": "Silk",
+      "Date": time,
+    }.newTable
+  else:
+    headerFields = headerTable
+
   return fmtResponseHeader(
     ResponseHeader(
       protocol: "HTTP/1.1",
       status: status,
-      headerFields: {
-        "Server": "Silk",
-        "Date": time,
-      }.newTable,
+      headerFields: headerFields,
     )
   )
 
