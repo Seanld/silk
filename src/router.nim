@@ -30,4 +30,7 @@ proc handleRoute*(r: Router, path: string, ctx: Context) {.async.} =
   try:
     await r.routes[path](ctx)
   except KeyError:
-    await r.defaultHandler(ctx)
+    if r.defaultHandler != nil:
+      await r.defaultHandler(ctx)
+    else:
+      discard
