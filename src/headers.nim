@@ -50,18 +50,25 @@ type RequestHeader* = object
   path*: string
   protocol*: string
   headerFields*: HeaderTable
+  content*: string
 
 proc parseReqHeader*(reqHeaderStr: string): RequestHeader =
   var
-    headerLines = reqHeaderStr.splitLines()
+    sections = reqHeaderStr.split("\r\n\r\n")
+    headerLines = sections[0].splitLines()
     headerFields = newTable[string, string]()
     methodLine = headerLines[0].split(" ")
+
+  var content = ""
+  if sections.len > 1:
+    content = sections[1]
 
   var newHeader = RequestHeader(
     action: methodLine[0],
     path: methodLine[1],
     protocol: methodLine[2],
     headerFields: headerFields,
+    content: content,
   )
 
   for line in headerLines[1..^2]:
@@ -78,6 +85,3 @@ proc recvReqHeaderStr*(client: AsyncSocket): Future[string] {.async.} =
       break
     result.add(line & "\r\n")
   return result
-
-proc recvReqHeader*(client: AsyncSocket): RequestHeader =
-  return parseReqHeader(waitFor recvReqHeaderStr(client))
