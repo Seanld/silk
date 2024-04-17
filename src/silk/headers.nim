@@ -3,13 +3,14 @@ import std/asyncdispatch
 import std/tables
 import std/strutils
 import std/times
+import std/paths
 from std/parseutils import parseInt
 
 import ./status
 
 type HeaderTable = TableRef[string, string]
 
-type Response = object
+type Response* = object
   protocol*: string
   status*: StatusCode
   headerFields*: HeaderTable
@@ -46,7 +47,7 @@ proc newResponseHeader*(status: StatusCode, headerTable: HeaderTable = nil, cont
 
 type Request* = object
   action*: string
-  path*: string
+  path*: Path
   protocol*: string
   headerFields*: HeaderTable
   content*: string
@@ -59,10 +60,13 @@ proc parseReqHeader*(reqHeaderStr: string): Request =
 
   var newHeader = Request(
     action: methodLine[0],
-    path: methodLine[1],
+    path: Path(methodLine[1]),
     protocol: methodLine[2],
     headerFields: headerFields,
   )
+
+  # Normalize the path so to eliminate edge cases in path formatting.
+  newHeader.path.normalizePath()
 
   for line in headerLines[1..^2]:
     let splitted = line.split(": ")
