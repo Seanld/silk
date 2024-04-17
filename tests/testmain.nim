@@ -13,7 +13,6 @@ proc helloPost(ctx: Context) {.async.} =
     await ctx.sendString("Wrong passphrase!")
 
 serv.router.GET("/", proc(ctx: Context) {.async.} = await ctx.sendFile(Path("index.html"), "text/html"))
-serv.router.GET("/flag.png", proc(ctx: Context) {.async.} = await ctx.sendFile(Path("../pictures/flag.png"), "image/png"))
 serv.router.GET("/test", proc(ctx: Context) {.async.} = await ctx.noContent(STATUS_OK))
 serv.router.GET("/hello", proc(ctx: Context) {.async.} = await ctx.sendString("Hello, world!"))
 serv.router.POST("/hello", helloPost)
