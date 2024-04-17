@@ -3,11 +3,11 @@ import std/asyncdispatch
 import std/tables
 from std/math import `^`
 
-import ./status
-import ./headers
-import ./context
-import ./router
-import ./middleware
+import ./silk/status
+import ./silk/headers
+import ./silk/context
+import ./silk/router
+import ./silk/middleware
 
 export status
 export headers

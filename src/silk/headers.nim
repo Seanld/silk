@@ -82,10 +82,27 @@ proc recvReqHeaderStr*(client: AsyncSocket): Future[string] {.async.} =
 # proc recvReqContentStr*(client: AsyncSocket, contentLength: int): Future[string] {.async.} =
 #   ## Receive content body as string into `header.content`.
 
+type NotImplementedDefect = object of Defect
+
 proc recvReq*(client: AsyncSocket, maxContentLen: int): Future[Request] {.async.} =
   var req = parseReqHeader(await client.recvReqHeaderStr())
   # Receive content body if one is attached.
   if req.headerFields.hasKey("Content-Length"):
     let contentLength = parseInt(req.headerFields["Content-Length"])
     req.content = await client.recv(contentLength)
+
+    if req.headerFields.hasKey("Transfer-Encoding"):
+      let encoding = req.headerFields["Transfer-Encoding"]
+      case encoding:
+        of "chunked":
+          raise newException(NotImplementedDefect, "HTTP/1.1 chunks are not yet implemented")
+        of "compress":
+          raise newException(NotImplementedDefect, "\"compress\" encoding will not be implemented")
+        of "deflate":
+          raise newException(NotImplementedDefect, "\"deflate\" compression not yet implemented")
+        of "gzip":
+          raise newException(NotImplementedDefect, "\"gzip\" compression not yet implemented")
+        else:
+          raise newException(Defect, "Invalid Transfer-Encoding type: " & encoding)
+
   return req
