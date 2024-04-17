@@ -6,6 +6,8 @@
 # possible. Will have to come up with some clean approach as
 # a workaround.
 
+import ./headers
+
 type Middleware = ref object
   discard
 
@@ -14,7 +16,7 @@ proc newMiddleware(): Middleware =
   ## of the middleware object instance's attributes.
   discard
 
-proc init(m: Middleware) =
+proc init*(m: Middleware) =
   ## Called by `Server` instance when it starts up.
   discard
 
@@ -25,17 +27,17 @@ type ProcessStatus = enum
   # send a response instead.
   SKIP_REQ_ROUTING
 
-proc processRequest(m: Middleware, req: string): tuple[req: string, status: ProcessStatus] =
+proc processRequest*(m: Middleware, req: string): tuple[req: Request, status: ProcessStatus] =
   ## Called by the `Server` instance when a request is inbound.
   ## Operations on the request (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is handled
   ## by the `Server` if it's the last middleware in the pipeline.
   ## `ProcessStatus` indicates to the `Server` how to proceed after.
-  return (req: "", status: NORMAL)
+  return (req: Request(), status: NORMAL)
 
-proc processResponse(m: Middleware, resp: string): string =
+proc processResponse*(m: Middleware, resp: string): Response =
   ## Called by the `Server` instance when a response is outbound.
   ## Operations on the response (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is sent to
   ## the client if it is the last middleware in the pipeline.
-  return ""
+  return Response()
