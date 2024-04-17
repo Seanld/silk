@@ -19,18 +19,19 @@ type Server* = ref object
   port*: Port
 
   # How many clients to handle at one time, before new connections are dropped.
-  maxClients* = 100
+  maxClients*: int
   # Limit content body size to a max size of 256 megabytes by default.
-  maxContentLen* = 2^28
+  maxContentLen*: int
 
   # Manages routing of paths to handlers.
   router*: Router
 
-proc newServer*(host: string, port: Port, maxClients: int = 100): Server =
+proc newServer*(host: string, port: Port, maxClients: int = 100, maxContentLen: int = 2^28): Server =
   return Server(
     host: host,
     port: port,
     maxClients: maxClients,
+    maxContentLen: maxContentLen,
     router: newRouter(),
   )
 
