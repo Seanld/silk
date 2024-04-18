@@ -37,10 +37,11 @@ proc newServer*(host: string, port: Port, maxClients: int = 100, maxContentLen: 
 
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   ## Executed as soon as a new connection is made.
-  # let headerStr = await recvReqHeaderStr()
+  defer: client.close()
   var req = await client.recvReq(s.maxContentLen)
-  await s.router.dispatchRoute(req, newContext(client, req))
-  client.close()
+  var ctx = newContext(client, req)
+  await s.router.dispatchRoute(req, ctx)
+  await client.send($ctx.resp)
 
 proc serve(s: Server) {.async.} =
   var server = newAsyncSocket()

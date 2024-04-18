@@ -4,7 +4,6 @@ import std/tables
 import std/strutils
 import std/times
 import std/paths
-from std/parseutils import parseInt
 
 import ./status
 
@@ -26,7 +25,7 @@ proc `$`*(h: Response): string =
 
   return responseHeader
 
-proc newResponseHeader*(status: StatusCode, headerTable: HeaderTable = nil, content: string = ""): Response =
+proc newResponse*(status: StatusCode, headerTable: HeaderTable = nil, content: string = ""): Response =
   let time = now().utc.format("ddd, dd MMM yyyy hh:mm:ss 'GMT'")
   var headerFields: HeaderTable
 
