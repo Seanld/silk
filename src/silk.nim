@@ -1,6 +1,7 @@
 import std/asyncnet
 import std/asyncdispatch
 import std/tables
+import std/logging
 from std/math import `^`
 
 import ./silk/status
@@ -26,6 +27,9 @@ type Server* = ref object
   # Manages routing of paths to handlers.
   router*: Router
 
+  # Active middleware.
+  middleware: seq[Middleware]
+
 proc newServer*(host: string, port: Port, maxClients: int = 100, maxContentLen: int = 2^28): Server =
   return Server(
     host: host,
@@ -44,8 +48,20 @@ proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
     # If request is empty (no data was sent), close connection early.
     client.close()
     return
+
+  # Send request through middleware pipeline.
+  for mw in s.middleware:
+    req = mw.processRequest(req)
+
+  # Dispatch context to router to obtain a relevant `Response`.
   var ctx = newContext(client, req)
   await s.router.dispatchRoute(req, ctx)
+
+  # Send response through middleware pipeline.
+  for mw in s.middleware:
+    ctx.resp = mw.processResponse(ctx.resp)
+
+  # Send response to client.
   await client.send($ctx.resp)
   client.close()
 
