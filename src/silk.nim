@@ -37,11 +37,17 @@ proc newServer*(host: string, port: Port, maxClients: int = 100, maxContentLen: 
 
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   ## Executed as soon as a new connection is made.
-  defer: client.close()
-  var req = await client.recvReq(s.maxContentLen)
+  var req: Request
+  try:
+    req = await client.recvReq(s.maxContentLen)
+  except EmptyRequestDefect:
+    # If request is empty (no data was sent), close connection early.
+    client.close()
+    return
   var ctx = newContext(client, req)
   await s.router.dispatchRoute(req, ctx)
   await client.send($ctx.resp)
+  client.close()
 
 proc serve(s: Server) {.async.} =
   var server = newAsyncSocket()

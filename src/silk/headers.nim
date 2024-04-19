@@ -51,11 +51,20 @@ type Request* = object
   headerFields*: HeaderTable
   content*: string
 
+type EmptyRequestDefect* = object of Defect
+
 proc parseReqHeader*(reqHeaderStr: string): Request =
+  if reqHeaderStr == "":
+    raise newException(EmptyRequestDefect, "Request from client was empty")
+
   var
     headerLines = reqHeaderStr.splitLines()
     headerFields = newTable[string, string]()
     methodLine = headerLines[0].split(" ")
+
+  for line in headerLines[1..^2]:
+    let splitted = line.split(": ")
+    headerFields[splitted[0]] = splitted[1]
 
   var newHeader = Request(
     action: methodLine[0],
@@ -67,17 +76,15 @@ proc parseReqHeader*(reqHeaderStr: string): Request =
   # Normalize the path so to eliminate edge cases in path formatting.
   newHeader.path.normalizePath()
 
-  for line in headerLines[1..^2]:
-    let splitted = line.split(": ")
-    headerFields[splitted[0]] = splitted[1]
-
   return newHeader
 
 proc recvReqHeaderStr*(client: AsyncSocket): Future[string] {.async.} =
-  var result = ""
+  var
+    result = ""
+    line = "" # Starting with empty string skips while loop.
   while true:
-    let line = await client.recvLine(maxLength = 1024)
-    if line == "\r\n":
+    line = await client.recvLine(maxLength = 1024)
+    if line == "\r\n" or line == "":
       break
     result.add(line & "\r\n")
   return result
@@ -89,6 +96,7 @@ type NotImplementedDefect = object of Defect
 
 proc recvReq*(client: AsyncSocket, maxContentLen: int): Future[Request] {.async.} =
   var req = parseReqHeader(await client.recvReqHeaderStr())
+
   # Receive content body if one is attached.
   if req.headerFields.hasKey("Content-Length"):
     let contentLength = parseInt(req.headerFields["Content-Length"])
