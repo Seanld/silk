@@ -6,9 +6,9 @@
 # possible. Will have to come up with some clean approach as
 # a workaround.
 
-import ../headers
+import ./headers
 
-type Middleware* = ref object
+type Middleware* = ref object of RootObj
   discard
 
 proc newMiddleware*(): Middleware =
@@ -20,7 +20,7 @@ proc init*(m: Middleware) =
   ## Called by `Server` instance when it starts up.
   discard
 
-proc processRequest*(m: Middleware, req: Request): Request =
+method processRequest*(m: Middleware, req: Request): Request =
   ## Called by the `Server` instance when a request is inbound.
   ## Operations on the request (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is handled
@@ -28,7 +28,7 @@ proc processRequest*(m: Middleware, req: Request): Request =
   ## `ProcessStatus` indicates to the `Server` how to proceed after.
   req
 
-proc processResponse*(m: Middleware, resp: Response): Response =
+method processResponse*(m: Middleware, resp: Response): Response =
   ## Called by the `Server` instance when a response is outbound.
   ## Operations on the response (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is sent to

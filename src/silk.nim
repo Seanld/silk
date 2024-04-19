@@ -1,6 +1,5 @@
 import std/asyncnet
 import std/asyncdispatch
-import std/tables
 import std/logging
 
 import ./silk/serverconfig
@@ -8,13 +7,14 @@ import ./silk/status
 import ./silk/headers
 import ./silk/context
 import ./silk/router
-import ./silk/middleware/base
+import ./silk/middleware
 
 export status
 export headers
 export context
 export router
 export serverconfig
+export middleware
 
 type Server* = ref object
   config*: ServerConfig
@@ -34,6 +34,9 @@ proc newServer*(config: ServerConfig): Server =
     loggers: @[],
     router: newRouter(),
   )
+
+proc addMiddleware*(s: Server, m: Middleware) =
+  s.middleware.add(m)
 
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   ## Executed as soon as a new connection is made.
