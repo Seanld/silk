@@ -6,7 +6,7 @@
 # possible. Will have to come up with some clean approach as
 # a workaround.
 
-import ./headers
+import ../headers
 
 type Middleware* = ref object
   discard
@@ -26,11 +26,11 @@ proc processRequest*(m: Middleware, req: Request): Request =
   ## The result is passed on to the next middleware, or is handled
   ## by the `Server` if it's the last middleware in the pipeline.
   ## `ProcessStatus` indicates to the `Server` how to proceed after.
-  return Request()
+  req
 
 proc processResponse*(m: Middleware, resp: Response): Response =
   ## Called by the `Server` instance when a response is outbound.
   ## Operations on the response (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is sent to
   ## the client if it is the last middleware in the pipeline.
-  return Response()
+  resp

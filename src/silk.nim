@@ -2,40 +2,36 @@ import std/asyncnet
 import std/asyncdispatch
 import std/tables
 import std/logging
-from std/math import `^`
 
+import ./silk/serverconfig
 import ./silk/status
 import ./silk/headers
 import ./silk/context
 import ./silk/router
-import ./silk/middleware
+import ./silk/middleware/base
 
 export status
 export headers
 export context
 export router
+export serverconfig
 
 type Server* = ref object
-  host*: string
-  port*: Port
-
-  # How many clients to handle at one time, before new connections are dropped.
-  maxClients*: int
-  # Limit content body size to a max size of 256 megabytes by default.
-  maxContentLen*: int
+  config*: ServerConfig
 
   # Manages routing of paths to handlers.
   router*: Router
 
+  # All the log handlers to be used by the server.
+  loggers*: seq[Logger]
+
   # Active middleware.
   middleware: seq[Middleware]
 
-proc newServer*(host: string, port: Port, maxClients: int = 100, maxContentLen: int = 2^28): Server =
+proc newServer*(config: ServerConfig): Server =
   return Server(
-    host: host,
-    port: port,
-    maxClients: maxClients,
-    maxContentLen: maxContentLen,
+    config: config,
+    loggers: @[],
     router: newRouter(),
   )
 
@@ -43,7 +39,7 @@ proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   ## Executed as soon as a new connection is made.
   var req: Request
   try:
-    req = await client.recvReq(s.maxContentLen)
+    req = await client.recvReq(s.config.maxContentLen)
   except EmptyRequestDefect:
     # If request is empty (no data was sent), close connection early.
     client.close()
@@ -68,13 +64,25 @@ proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
 proc serve(s: Server) {.async.} =
   var server = newAsyncSocket()
   server.setSockOpt(OptReuseAddr, true)
-  server.bindAddr(s.port, s.host)
+  server.bindAddr(s.config.port, s.config.host)
   server.listen()
 
   while true:
     let client = await server.accept()
-    asyncCheck s.dispatchClient(client)
+    try:
+      asyncCheck s.dispatchClient(client)
+    except Exception as e:
+      error(e.msg)
 
 proc start*(s: Server) =
+  ## Start HTTP server and run infinitely.
+  # Register loggers.
+  for l in s.loggers:
+    addHandler(l)
+
+  # Init all middleware.
+  for m in s.middleware:
+    m.init()
+
   asyncCheck s.serve()
   runForever()

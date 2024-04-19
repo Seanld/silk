@@ -9,7 +9,7 @@ import ./status
 
 type HeaderTable = TableRef[string, string]
 
-type Response* = object
+type Response* = ref object
   protocol*: string
   status*: StatusCode
   headerFields*: HeaderTable
@@ -44,7 +44,7 @@ proc newResponse*(status: StatusCode, headerTable: HeaderTable = nil, content: s
     content: content,
   )
 
-type Request* = object
+type Request* = ref object
   action*: string
   path*: Path
   protocol*: string
