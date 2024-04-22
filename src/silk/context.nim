@@ -10,11 +10,13 @@ type Context* = ref object
   conn*: AsyncSocket
   req*: Request
   resp*: Response
+  params*: Table[string, string]
 
 proc newContext*(conn: AsyncSocket, req: Request): Context =
   return Context(
     conn: conn,
     req: req,
+    params: initTable[string, string](),
   )
 
 proc noContent*(ctx: Context, status: StatusCode) =

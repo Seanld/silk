@@ -1,6 +1,9 @@
 import std/tables
 import std/asyncdispatch
 import std/paths
+from std/sequtils import zip, toSeq
+from std/strutils import split
+
 import ./context
 import ./headers
 import ./status
@@ -54,17 +57,41 @@ proc DELETE*(r: Router, path: string, handler: RouteHandler) =
 proc staticDir*(r: Router, rootPath: string, localDir: string) =
   r.staticRoutes.add((rootPath, localDir))
 
+proc matchHandlerRoute(r: Router, req: Request, ctx: Context): RouteHandler =
+  # This may later be optimized by sorting entries into groups
+  # based on their path length, which can reduce the amount of
+  # wasted path comparisons, especially for routers with many entries.
+  for entry, handler in r.handlerRoutes:
+    block outer:
+      let
+        entryPathLength = entry.path.split("/").len - 1
+        reqPathLength = req.path.string.split("/").len - 1
+
+      if entryPathLength == reqPathLength:
+        let zipped: seq[tuple[entryPathPart, reqPathPart: Path]] =
+          zip(Path(entry.path).parentDirs.toSeq, req.path.parentDirs.toSeq)
+
+        for parts in zipped:
+          let
+            entryPathTail = parts.entryPathPart.splitPath().tail
+            reqPathTail = parts.reqPathPart.splitPath().tail
+
+          if entryPathTail.string.len > 1 and entryPathTail.string[0] == '{' and entryPathTail.string[^1] == '}':
+            ctx.params[entryPathTail.string[1..^2]] = reqPathTail.string
+          elif entryPathTail != reqPathTail:
+            break outer
+
+        return handler
+
 proc dispatchRoute*(r: Router, req: Request, ctx: Context) {.async.} =
   ## Calls the appropriate handler proc, or gets content of
   ## statically-routed file if appropriate, and updates `ctx.resp`
   ## with the resulting response.
-  try:
-    await r.handlerRoutes[(req.action, req.path.string)](ctx)
+
+  let handlerRoute = matchHandlerRoute(r, req, ctx)
+  if handlerRoute != nil:
+    await handlerRoute(ctx)
     return
-  except KeyError:
-    # Handler proc not found, continue on to check if static
-    # route exists.
-    discard
 
   # Check for static route match.
   for entry in r.staticRoutes:
