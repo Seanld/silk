@@ -1,6 +1,7 @@
 import std/asyncnet
 import std/asyncdispatch
 import std/logging
+import std/tables
 
 import ./silk/serverconfig
 import ./silk/status
@@ -8,6 +9,8 @@ import ./silk/headers
 import ./silk/context
 import ./silk/router
 import ./silk/middleware
+
+export tables.`[]`, tables.`[]=`
 
 export status
 export headers

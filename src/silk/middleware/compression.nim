@@ -14,7 +14,7 @@ method processRequest*(m: CompressionMiddleware, req: Request): Request =
   req
 
 method processResponse*(m: CompressionMiddleware, resp: Response): Response =
-  echo "compressing!"
   resp.content = resp.content.compress(BestSpeed, dfGzip)
   resp.headerFields["Content-Encoding"] = "gzip"
+  resp.headerFields["Content-Length"] = $resp.content.len
   return resp
