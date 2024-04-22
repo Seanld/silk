@@ -26,7 +26,7 @@ type Server* = ref object
   router*: Router
 
   # All the log handlers to be used by the server.
-  loggers*: seq[Logger]
+  loggers: seq[Logger]
 
   # Active middleware.
   middleware: seq[Middleware]
@@ -40,6 +40,9 @@ proc newServer*(config: ServerConfig): Server =
 
 proc addMiddleware*(s: Server, m: Middleware) =
   s.middleware.add(m)
+
+proc addLogger*(s: Server, l: Logger) =
+  s.loggers.add(l)
 
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   ## Executed as soon as a new connection is made.
