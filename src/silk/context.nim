@@ -28,17 +28,18 @@ proc sendString*(ctx: Context, str: string, mime: string = "text/plain", status:
   resp.headerFields["Content-Length"] = $str.len
   ctx.resp = resp
 
-proc sendFile*(ctx: Context, path: Path, mime: string = "", status: StatusCode = STATUS_OK) =
+proc sendFile*(ctx: Context, path: string, mime: string = "", status: StatusCode = STATUS_OK) =
   ## `mime` can be left empty, and mimetype will be recognized
   ## based on file extension, if a file extension exists. Otherwise
   ## an exception will be raised.
+  let asPath = Path(path)
   let m = newMimetypes()
   var actualMime = ""
   if mime != "":
     actualMime = mime
   else:
-    let (_, _, ext) = path.splitFile()
+    let (_, _, ext) = asPath.splitFile()
     if ext == "":
       raise newException(Exception, "Mimetype required for sendFile (not given or found)")
     actualMime = m.getMimetype(ext)
-  ctx.sendString(readFile(path.string), actualMime, status)
+  ctx.sendString(readFile(path), actualMime, status)

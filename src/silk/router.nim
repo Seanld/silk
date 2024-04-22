@@ -100,7 +100,7 @@ proc dispatchRoute*(r: Router, req: Request, ctx: Context) {.async.} =
       let
         relPath = req.path.relativePath(rootPathAsPath)
         localPath = Path(entry.localDir) / relPath
-      ctx.sendFile(localPath)
+      ctx.sendFile(localPath.string)
       return
 
   # Didn't match request to any route entry. Use default handler.
