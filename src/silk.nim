@@ -2,6 +2,7 @@ import std/asyncnet
 import std/asyncdispatch
 import std/logging
 import std/tables
+from nativesockets import Port
 
 import ./silk/serverconfig
 import ./silk/status
@@ -11,7 +12,9 @@ import ./silk/router
 import ./silk/middleware
 
 export tables.`[]`, tables.`[]=`
+export nativesockets.Port
 
+export asyncdispatch
 export status
 export headers
 export context
@@ -24,9 +27,6 @@ type Server* = ref object
 
   # Manages routing of paths to handlers.
   router*: Router
-
-  # All the log handlers to be used by the server.
-  loggers: seq[Logger]
 
   # Active middleware.
   middleware: seq[Middleware]
@@ -42,9 +42,6 @@ proc newServer*(config: ServerConfig): Server =
 
 proc addMiddleware*(s: Server, m: Middleware) =
   s.middleware.add(m)
-
-proc addLogger*(s: Server, l: Logger) =
-  s.loggers.add(l)
 
 proc GET*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   s.router.GET(path, handler, middleware)
@@ -101,9 +98,6 @@ proc serve(s: Server) {.async.} =
 
 proc start*(s: Server) =
   ## Start HTTP server and run infinitely.
-  # Register loggers.
-  for l in s.loggers:
-    addHandler(l)
 
   # Init all middleware.
   for m in s.middleware:

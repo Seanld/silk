@@ -52,6 +52,7 @@ type Request* = ref object
   protocol*: string
   headerFields*: HeaderTable
   content*: string
+  remoteAddr*: string
 
 type EmptyRequestDefect* = object of Defect
 
@@ -101,6 +102,9 @@ type NotImplementedDefect = object of Defect
 
 proc recvReq*(client: AsyncSocket, maxContentLen: int): Future[Request] {.async.} =
   var req = parseReqHeader(await client.recvReqHeaderStr())
+
+  # Add requestee's address.
+  req.remoteAddr = client.getPeerAddr()[0]
 
   # Receive content body if one is attached.
   if req.headerFields.hasKey("Content-Length"):

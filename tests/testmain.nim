@@ -1,18 +1,15 @@
-import std/asyncdispatch
-import std/logging
-import std/tables
 import std/paths
 from std/strutils import parseBool
-from std/nativesockets import Port
 
 import silk
 import silk/middleware/compression
+import silk/middleware/logging
 
 var serv = newServer(
   ServerConfig(host: "0.0.0.0", port: Port(8080))
 )
 
-serv.addLogger(newConsoleLogger())
+serv.addMiddleware(newLoggingMiddleware())
 
 proc getImg(ctx: Context) {.async.} =
   let filename = ctx.params["filename"]
