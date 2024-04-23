@@ -1,4 +1,6 @@
 import std/asyncnet
+import std/asyncfile
+import std/asyncdispatch
 import std/tables
 import std/paths
 import std/mimetypes
@@ -33,18 +35,27 @@ proc sendString*(ctx: Context, str: string, mime: string = "text/plain", status:
   resp.headerFields["Content-Length"] = $str.len
   ctx.resp = resp
 
+proc getFileMimetype(path: string): string =
+  let asPath = Path(path)
+  let m = newMimetypes()
+  let (_, _, ext) = asPath.splitFile()
+  if ext == "":
+    raise newException(Exception, "Mimetype required for sendFile (not given or found)")
+  return m.getMimetype(ext)
+
 proc sendFile*(ctx: Context, path: string, mime: string = "", status: StatusCode = STATUS_OK) =
   ## `mime` can be left empty, and mimetype will be recognized
   ## based on file extension, if a file extension exists. Otherwise
   ## an exception will be raised.
-  let asPath = Path(path)
-  let m = newMimetypes()
-  var actualMime = ""
-  if mime != "":
-    actualMime = mime
-  else:
-    let (_, _, ext) = asPath.splitFile()
-    if ext == "":
-      raise newException(Exception, "Mimetype required for sendFile (not given or found)")
-    actualMime = m.getMimetype(ext)
+  var actualMime = mime
+  if mime == "":
+    actualMime = getFileMimetype(path)
   ctx.sendString(readFile(path), actualMime, status)
+
+proc sendFileAsync*(ctx: Context, path: string, mime: string = "", status: StatusCode = STATUS_OK) {.async.} =
+  ## Same as `sendFile`, but asynchronous.
+  var actualMime = mime
+  if mime == "":
+    actualMime = getFileMimetype(path)
+  let af = openAsync(path)
+  ctx.sendString(await af.readAll(), actualMime, status)
