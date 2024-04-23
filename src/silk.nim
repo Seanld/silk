@@ -99,8 +99,13 @@ proc serve(s: Server) {.async.} =
   server.listen()
 
   while true:
-    let client = await server.accept()
-    asyncCheck s.dispatchClient(client)
+    try:
+      let client = await server.accept()
+      asyncCheck s.dispatchClient(client)
+    except:
+      if not s.config.keepAlive:
+        raise
+      error(getCurrentExceptionMsg())
 
 proc start*(s: Server) =
   ## Start HTTP server and run infinitely.
@@ -109,11 +114,5 @@ proc start*(s: Server) =
   for m in s.middleware:
     m.init()
 
-  try:
-    asyncCheck s.serve()
-  except Exception as e:
-    if not s.config.keepAlive:
-      raise
-    error(e.msg)
-
+  asyncCheck s.serve()
   runForever()
