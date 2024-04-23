@@ -45,6 +45,8 @@ proc newRouter*(handlerRoutes: HandlerTable = nil): Router =
 proc registerHandlerRoute(r: Router, methodStr: string, path: string, handler: RouteHandler, middleware: seq[Middleware]) =
   var normalizedPath = Path(path); normalizedPath.normalizePath()
   r.handlerRoutes[(methodStr, normalizedPath.string)] = (handler: handler, middleware: middleware)
+  for mw in middleware:
+    mw.init()
 
 proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   registerHandlerRoute(r, "GET", path, handler, middleware)
