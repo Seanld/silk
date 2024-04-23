@@ -2,6 +2,7 @@ import std/asyncnet
 import std/tables
 import std/paths
 import std/mimetypes
+import std/uri
 
 import ./headers
 import ./status
@@ -18,6 +19,10 @@ proc newContext*(conn: AsyncSocket, req: Request): Context =
     req: req,
     params: initTable[string, string](),
   )
+
+proc parseQuery*(ctx: Context): Table[string, string] =
+  for key, val in ctx.req.uri.query.decodeQuery():
+    result[key] = val
 
 proc noContent*(ctx: Context, status: StatusCode) =
   ctx.resp = newResponse(status)

@@ -4,6 +4,7 @@ import std/tables
 import std/strutils
 import std/times
 import std/paths
+import std/uri
 
 import ./status
 
@@ -47,6 +48,7 @@ proc newResponse*(status: StatusCode, headerTable: HeaderTable = nil, content: s
 type Request* = ref object
   action*: string
   path*: Path
+  uri*: Uri
   protocol*: string
   headerFields*: HeaderTable
   content*: string
@@ -66,9 +68,12 @@ proc parseReqHeader*(reqHeaderStr: string): Request =
     let splitted = line.split(": ")
     headerFields[splitted[0]] = splitted[1]
 
+  let uri = parseUri(methodLine[1])
+
   var newHeader = Request(
     action: methodLine[0],
-    path: Path(methodLine[1]),
+    uri: uri,
+    path: Path(uri.path),
     protocol: methodLine[2],
     headerFields: headerFields,
   )
