@@ -15,4 +15,6 @@ type ServerConfig* = object
   # Limit content body size to a max size of 256 megabytes by default.
   maxContentLen*: int = 2^28
 
+  # When `true`, keep program alive, and log errors to loggers. If `false`,
+  # let the error kill the program.
   keepAlive* = true
