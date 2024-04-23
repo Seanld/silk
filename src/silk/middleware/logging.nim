@@ -1,3 +1,5 @@
+# Logs requests to server's loggers.
+
 import std/logging
 import std/strformat
 from std/uri import `$`
@@ -12,20 +14,12 @@ type LoggingMiddlewareSetting* = enum
 
 type LoggingMiddleware* = ref object of Middleware
   setting: LoggingMiddlewareSetting
-  loggers: seq[Logger]
 
-proc newLoggingMiddleware*(setting: LoggingMiddlewareSetting = lmsMinimal,
-                           loggers: seq[Logger] = @[newConsoleLogger().Logger]): LoggingMiddleware =
-  for l in loggers:
-    addHandler(l)
-  LoggingMiddleware(
-    setting: setting,
-    loggers: loggers,
-  )
+proc newLoggingMiddleware*(setting: LoggingMiddlewareSetting = lmsMinimal): LoggingMiddleware =
+  LoggingMiddleware(setting: setting)
 
-proc useLoggingMiddleware*(setting: LoggingMiddlewareSetting = lmsMinimal,
-                           loggers: seq[Logger] = @[newConsoleLogger().Logger]): Middleware =
-  newLoggingMiddleware(setting, loggers).Middleware
+proc useLoggingMiddleware*(setting: LoggingMiddlewareSetting = lmsMinimal): Middleware =
+  newLoggingMiddleware(setting).Middleware
 
 method processRequest*(m: LoggingMiddleware, req: Request): Request =
   result = req
@@ -33,7 +27,7 @@ method processRequest*(m: LoggingMiddleware, req: Request): Request =
   case m.setting:
     of lmsMinimal, lmsVerbose:
       msg = &"{req.remoteAddr} requested {$req.uri}"
-  log(lvlInfo, msg)
+  info(msg)
 
 method processResponse*(m: LoggingMiddleware, resp: Response): Response =
   resp

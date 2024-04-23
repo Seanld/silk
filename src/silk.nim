@@ -28,6 +28,8 @@ type Server* = ref object
   # Manages routing of paths to handlers.
   router*: Router
 
+  loggers: seq[Logger]
+
   # Active middleware.
   middleware: seq[Middleware]
 
@@ -35,13 +37,20 @@ template `~>`*(expr: untyped): untyped =
   proc(ctx{.inject.}: Context) {.async.} = expr
 
 proc newServer*(config: ServerConfig): Server =
-  return Server(
+  let defaultConsoleLogger = newConsoleLogger()
+  result = Server(
     config: config,
     router: newRouter(),
+    loggers: @[defaultConsoleLogger.Logger]
   )
+  addHandler(defaultConsoleLogger)
 
 proc addMiddleware*(s: Server, m: Middleware) =
   s.middleware.add(m)
+
+proc addLogger*(s: Server, l: Logger) =
+  s.loggers.add(l)
+  addHandler(l)
 
 proc GET*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   s.router.GET(path, handler, middleware)
@@ -91,10 +100,7 @@ proc serve(s: Server) {.async.} =
 
   while true:
     let client = await server.accept()
-    try:
-      asyncCheck s.dispatchClient(client)
-    except Exception as e:
-      error(e.msg)
+    asyncCheck s.dispatchClient(client)
 
 proc start*(s: Server) =
   ## Start HTTP server and run infinitely.
@@ -103,5 +109,11 @@ proc start*(s: Server) =
   for m in s.middleware:
     m.init()
 
-  asyncCheck s.serve()
+  try:
+    asyncCheck s.serve()
+  except Exception as e:
+    if not s.config.keepAlive:
+      raise
+    error(e.msg)
+
   runForever()

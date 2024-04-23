@@ -3,7 +3,6 @@
 # of the codebase, and due to Nim limitations with circular dependencies,
 # this needs to be pulled out of `silk.nim`.
 
-import std/tables
 from std/math import `^`
 from std/nativesockets import Port
 
@@ -16,4 +15,4 @@ type ServerConfig* = object
   # Limit content body size to a max size of 256 megabytes by default.
   maxContentLen*: int = 2^28
 
-  customFields: Table[string, string]
+  keepAlive* = true
