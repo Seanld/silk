@@ -37,7 +37,6 @@ template `~>`*(expr: untyped): untyped =
 proc newServer*(config: ServerConfig): Server =
   return Server(
     config: config,
-    loggers: @[],
     router: newRouter(),
   )
 
@@ -47,14 +46,14 @@ proc addMiddleware*(s: Server, m: Middleware) =
 proc addLogger*(s: Server, l: Logger) =
   s.loggers.add(l)
 
-proc GET*(s: Server, path: string, handler: RouteHandler) =
-  s.router.GET(path, handler)
-proc POST*(s: Server, path: string, handler: RouteHandler) =
-  s.router.POST(path, handler)
-proc PUT*(s: Server, path: string, handler: RouteHandler) =
-  s.router.PUT(path, handler)
-proc DELETE*(s: Server, path: string, handler: RouteHandler) =
-  s.router.DELETE(path, handler)
+proc GET*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  s.router.GET(path, handler, middleware)
+proc POST*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  s.router.POST(path, handler, middleware)
+proc PUT*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  s.router.PUT(path, handler, middleware)
+proc DELETE*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  s.router.DELETE(path, handler, middleware)
 
 # Any files underneath `rootPath` will be served when requested via GET.
 proc staticDir*(s: Server, rootPath: string, localDir: string) =
@@ -70,12 +69,13 @@ proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
     client.close()
     return
 
+  var ctx = newContext(client, req)
+
   # Send request through middleware pipeline.
   for mw in s.middleware:
-    req = mw.processRequest(req)
+    ctx.req = mw.processRequest(req)
 
   # Dispatch context to router to obtain a relevant `Response`.
-  var ctx = newContext(client, req)
   await s.router.dispatchRoute(req, ctx)
 
   # Send response through middleware pipeline.

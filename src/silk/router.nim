@@ -7,10 +7,12 @@ from std/strutils import split
 import ./context
 import ./headers
 import ./status
+import ./middleware
 
 type RouteHandler* = proc (ctx: Context) {.async.}
+type HandlerEntryVal* = tuple[handler: RouteHandler, middleware: seq[Middleware]]
 type RouteTableEntry* = tuple[action: string, path: string]
-type HandlerTable* = TableRef[RouteTableEntry, RouteHandler]
+type HandlerTable* = TableRef[RouteTableEntry, HandlerEntryVal]
 type StaticSeqEntry* = tuple[rootPath: string, localDir: string]
 type StaticSeq* = seq[StaticSeqEntry]
 
@@ -33,35 +35,36 @@ proc newRouter*(handlerRoutes: HandlerTable = nil): Router =
   if handlerRoutes != nil:
     newHandlerRouteTable = handlerRoutes
   else:
-    newHandlerRouteTable = newTable[RouteTableEntry, RouteHandler]()
+    newHandlerRouteTable = newTable[RouteTableEntry, HandlerEntryVal]()
 
   return Router(
     handlerRoutes: newHandlerRouteTable,
     staticRoutes: newSeq[StaticSeqEntry](),
   )
 
-proc registerHandlerRoute(r: Router, methodStr: string, path: string, handler: RouteHandler) =
+proc registerHandlerRoute(r: Router, methodStr: string, path: string, handler: RouteHandler, middleware: seq[Middleware]) =
   var normalizedPath = Path(path); normalizedPath.normalizePath()
-  r.handlerRoutes[(methodStr, normalizedPath.string)] = handler
+  r.handlerRoutes[(methodStr, normalizedPath.string)] = (handler: handler, middleware: middleware)
 
-proc GET*(r: Router, path: string, handler: RouteHandler) =
-  registerHandlerRoute(r, "GET", path, handler)
-proc POST*(r: Router, path: string, handler: RouteHandler) =
-  registerHandlerRoute(r, "POST", path, handler)
-proc PUT*(r: Router, path: string, handler: RouteHandler) =
-  registerHandlerRoute(r, "PUT", path, handler)
-proc DELETE*(r: Router, path: string, handler: RouteHandler) =
-  registerHandlerRoute(r, "DELETE", path, handler)
+proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  registerHandlerRoute(r, "GET", path, handler, middleware)
+proc POST*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  registerHandlerRoute(r, "POST", path, handler, middleware)
+proc PUT*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  registerHandlerRoute(r, "PUT", path, handler, middleware)
+proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  registerHandlerRoute(r, "DELETE", path, handler, middleware)
 
 # Any files underneath `rootPath` will be served when requested via GET.
 proc staticDir*(r: Router, rootPath: string, localDir: string) =
   r.staticRoutes.add((rootPath, localDir))
 
-proc matchHandlerRoute(r: Router, req: Request, ctx: Context): RouteHandler =
+proc matchHandlerRoute(r: Router, req: Request, ctx: Context): HandlerEntryVal =
   # This may later be optimized by sorting entries into groups
   # based on their path length, which can reduce the amount of
   # wasted path comparisons, especially for routers with many entries.
-  for entry, handler in r.handlerRoutes:
+  for entry, entryVal in r.handlerRoutes:
+    let (handler, middleware) = entryVal
     block outer:
       let
         entryPathLength = entry.path.split("/").len - 1
@@ -81,16 +84,20 @@ proc matchHandlerRoute(r: Router, req: Request, ctx: Context): RouteHandler =
           elif entryPathTail != reqPathTail:
             break outer
 
-        return handler
+        return (handler, middleware)
 
 proc dispatchRoute*(r: Router, req: Request, ctx: Context) {.async.} =
   ## Calls the appropriate handler proc, or gets content of
   ## statically-routed file if appropriate, and updates `ctx.resp`
   ## with the resulting response.
 
-  let handlerRoute = matchHandlerRoute(r, req, ctx)
+  let (handlerRoute, handlerMiddleware) = matchHandlerRoute(r, req, ctx)
   if handlerRoute != nil:
+    for mw in handlerMiddleware:
+      ctx.req = mw.processRequest(req)
     await handlerRoute(ctx)
+    for mw in handlerMiddleware:
+      ctx.resp = mw.processResponse(ctx.resp)
     return
 
   # Check for static route match.

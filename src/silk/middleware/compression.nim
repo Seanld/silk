@@ -22,6 +22,9 @@ proc newCompressionMiddleware*(level: int = BestSpeed, format: CompressedDataFor
     format: format,
   )
 
+proc useCompressionMiddleware*(level: int = BestSpeed, format: CompressedDataFormat = dfGzip): Middleware =
+  newCompressionMiddleware(level, format).Middleware
+
 method processRequest*(m: CompressionMiddleware, req: Request): Request =
   req
 

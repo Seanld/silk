@@ -14,10 +14,17 @@ type Middleware* = ref object of RootObj
 proc newMiddleware*(): Middleware =
   ## For custom middleware, this will be what sets up values
   ## of the middleware object instance's attributes.
-  discard
+  Middleware()
+
+proc useMiddleware*(): Middleware =
+  ## Implemented by child middleware (useless in base middleware).
+  ## Returns the middleware coerced to the `Middleware` type, which
+  ## is useful when putting middleware in seq literals, for example.
+  Middleware().Middleware
 
 proc init*(m: Middleware) =
-  ## Called by `Server` instance when it starts up.
+  ## Called by `Server` instance when it starts up. Can be useful
+  ## for some middleware to handle setup tasks.
   discard
 
 method processRequest*(m: Middleware, req: Request): Request {.base.} =
