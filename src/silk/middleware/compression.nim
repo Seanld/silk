@@ -4,17 +4,29 @@ import zippy
 import ../middleware
 import ../headers
 
-type CompressionMiddleware* = ref object of Middleware
-  discard
+export CompressedDataFormat
 
-proc newCompressionMiddleware*(): CompressionMiddleware =
-  CompressionMiddleware()
+type CompressionMiddleware* = ref object of Middleware
+  level: int
+  format: CompressedDataFormat
+
+const FORMAT_MAPPING = {
+  dfGzip: "gzip",
+  dfDeflate: "deflate",
+  dfZlib: "zlib",
+}.toTable
+
+proc newCompressionMiddleware*(level: int = BestSpeed, format: CompressedDataFormat = dfGzip): CompressionMiddleware =
+  CompressionMiddleware(
+    level: level,
+    format: format,
+  )
 
 method processRequest*(m: CompressionMiddleware, req: Request): Request =
   req
 
 method processResponse*(m: CompressionMiddleware, resp: Response): Response =
-  resp.content = resp.content.compress(BestSpeed, dfGzip)
-  resp.headerFields["Content-Encoding"] = "gzip"
+  resp.content = resp.content.compress(m.level, m.format)
+  resp.headerFields["Content-Encoding"] = FORMAT_MAPPING[m.format]
   resp.headerFields["Content-Length"] = $resp.content.len
   return resp

@@ -31,6 +31,9 @@ type Server* = ref object
   # Active middleware.
   middleware: seq[Middleware]
 
+template `~>`*(expr: untyped): untyped =
+  proc(ctx{.inject.}: Context) {.async.} = expr
+
 proc newServer*(config: ServerConfig): Server =
   return Server(
     config: config,
@@ -43,6 +46,19 @@ proc addMiddleware*(s: Server, m: Middleware) =
 
 proc addLogger*(s: Server, l: Logger) =
   s.loggers.add(l)
+
+proc GET*(s: Server, path: string, handler: RouteHandler) =
+  s.router.GET(path, handler)
+proc POST*(s: Server, path: string, handler: RouteHandler) =
+  s.router.POST(path, handler)
+proc PUT*(s: Server, path: string, handler: RouteHandler) =
+  s.router.PUT(path, handler)
+proc DELETE*(s: Server, path: string, handler: RouteHandler) =
+  s.router.DELETE(path, handler)
+
+# Any files underneath `rootPath` will be served when requested via GET.
+proc staticDir*(s: Server, rootPath: string, localDir: string) =
+  s.router.staticDir(rootPath, localDir)
 
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   ## Executed as soon as a new connection is made.
