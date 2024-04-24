@@ -11,19 +11,19 @@ import ../status
 
 export logging
 
-type LoggingMiddlewareSetting* = enum
+type MsgLoggingMiddlewareSetting* = enum
   lmsMinimal, lmsVerbose
 
-type LoggingMiddleware* = ref object of Middleware
-  setting: LoggingMiddlewareSetting
+type MsgLoggingMiddleware* = ref object of Middleware
+  setting: MsgLoggingMiddlewareSetting
 
-proc newLoggingMiddleware*(setting: LoggingMiddlewareSetting = lmsMinimal): LoggingMiddleware =
-  LoggingMiddleware(setting: setting)
+proc newMsgLoggingMiddleware*(setting: MsgLoggingMiddlewareSetting = lmsMinimal): MsgLoggingMiddleware =
+  MsgLoggingMiddleware(setting: setting)
 
-proc useLoggingMiddleware*(setting: LoggingMiddlewareSetting = lmsMinimal): Middleware =
-  newLoggingMiddleware(setting).Middleware
+proc useMsgLoggingMiddleware*(setting: MsgLoggingMiddlewareSetting = lmsMinimal): Middleware =
+  newMsgLoggingMiddleware(setting).Middleware
 
-method processRequest*(m: LoggingMiddleware, req: Request): Request =
+method processRequest*(m: MsgLoggingMiddleware, req: Request): Request =
   result = req
   var msg = ""
   case m.setting:
@@ -31,7 +31,8 @@ method processRequest*(m: LoggingMiddleware, req: Request): Request =
       msg = &"-> {req.remoteAddr} requested {$req.uri}"
   info(msg)
 
-method processResponse*(m: LoggingMiddleware, resp: Response): Response =
+method processResponse*(m: MsgLoggingMiddleware, resp: Response): Response =
+  echo resp
   result = resp
   var msg = ""
   case m.setting:
