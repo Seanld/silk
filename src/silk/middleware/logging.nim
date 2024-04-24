@@ -32,7 +32,6 @@ method processRequest*(m: MsgLoggingMiddleware, req: Request): Request =
   info(msg)
 
 method processResponse*(m: MsgLoggingMiddleware, resp: Response): Response =
-  echo resp
   result = resp
   var msg = ""
   case m.setting:
