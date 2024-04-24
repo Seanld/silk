@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.3.4"
+version       = "0.3.5"
 author        = "Sean Wilkerson"
 description   = "A Nim HTTP server library"
 license       = "LGPL-3.0-or-later"

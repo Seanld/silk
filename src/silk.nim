@@ -92,6 +92,17 @@ proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   await client.send($ctx.resp)
   client.close()
 
+proc dispatchClientPrecheck(s: Server, client: AsyncSocket) {.async.} =
+  ## Handles exceptions from entire request/route/response
+  ## dispatching process. Necessary for keep-alive.
+  try:
+    await s.dispatchClient(client)
+  except:
+    if not s.config.keepAlive:
+      raise
+    client.close()
+    error(getCurrentExceptionMsg())
+
 proc serve(s: Server) {.async.} =
   var server = newAsyncSocket()
   server.setSockOpt(OptReuseAddr, true)
@@ -99,13 +110,8 @@ proc serve(s: Server) {.async.} =
   server.listen()
 
   while true:
-    try:
-      let client = await server.accept()
-      asyncCheck s.dispatchClient(client)
-    except:
-      if not s.config.keepAlive:
-        raise
-      error(getCurrentExceptionMsg())
+    let client = await server.accept()
+    asyncCheck s.dispatchClientPrecheck(client)
 
 proc start*(s: Server) =
   ## Start HTTP server and run infinitely.
