@@ -22,8 +22,9 @@ proc newContext*(conn: AsyncSocket, req: Request): Context =
     params: initTable[string, string](),
   )
 
-proc parseQuery*(ctx: Context): Table[string, string] =
-  for key, val in ctx.req.uri.query.decodeQuery():
+proc parseQuery*(ctx: Context, queryStr = ""): Table[string, string] =
+  var q = if queryStr == "": ctx.req.uri.query else: queryStr
+  for key, val in q.decodeQuery():
     result[key] = val
 
 proc noContent*(ctx: Context, status: StatusCode) =
@@ -59,3 +60,6 @@ proc sendFileAsync*(ctx: Context, path: string, mime: string = "", status: Statu
     actualMime = getFileMimetype(path)
   let af = openAsync(path)
   ctx.sendString(await af.readAll(), actualMime, status)
+
+proc parseFormQuery*(ctx: Context): Table[string, string] =
+  ctx.parseQuery(ctx.req.content)
