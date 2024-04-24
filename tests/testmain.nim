@@ -1,4 +1,5 @@
 import std/paths
+import std/logging
 from std/strutils import parseBool
 
 import silk
@@ -6,7 +7,8 @@ import silk/middleware/compression
 import silk/middleware/logging
 
 var serv = newServer(
-  ServerConfig(host: "0.0.0.0", port: Port(8080))
+  ServerConfig(host: "0.0.0.0", port: Port(8080)),
+  @[newFileLogger("log.txt").Logger],
 )
 
 serv.addMiddleware(newLoggingMiddleware())

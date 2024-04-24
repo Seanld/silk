@@ -2,10 +2,12 @@
 
 import std/logging
 import std/strformat
+import std/tables
 from std/uri import `$`
 
 import ../middleware
 import ../headers
+import ../status
 
 export logging
 
@@ -26,8 +28,16 @@ method processRequest*(m: LoggingMiddleware, req: Request): Request =
   var msg = ""
   case m.setting:
     of lmsMinimal, lmsVerbose:
-      msg = &"{req.remoteAddr} requested {$req.uri}"
+      msg = &"-> {req.remoteAddr} requested {$req.uri}"
   info(msg)
 
 method processResponse*(m: LoggingMiddleware, resp: Response): Response =
-  resp
+  result = resp
+  var msg = ""
+  case m.setting:
+    of lmsMinimal, lmsVerbose:
+      let
+        statusNum = resp.status.ord()
+        statusName = STATUS_CODE_MAPPING[statusNum]
+      msg = &"<- {statusName} {statusNum}"
+  info(msg)

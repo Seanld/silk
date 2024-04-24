@@ -36,14 +36,14 @@ type Server* = ref object
 template `~>`*(expr: untyped): untyped =
   proc(ctx{.inject.}: Context) {.async.} = expr
 
-proc newServer*(config: ServerConfig): Server =
-  let defaultConsoleLogger = newConsoleLogger()
+proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger]): Server =
   result = Server(
     config: config,
     router: newRouter(),
-    loggers: @[defaultConsoleLogger.Logger]
+    loggers: loggers,
   )
-  addHandler(defaultConsoleLogger)
+  for l in loggers:
+    addHandler(l)
 
 proc addMiddleware*(s: Server, m: Middleware) =
   s.middleware.add(m)
