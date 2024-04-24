@@ -72,7 +72,7 @@ proc matchHandlerRoute(r: Router, req: Request, ctx: Context): HandlerEntryVal =
         entryPathLength = entry.path.split("/").len - 1
         reqPathLength = req.path.string.split("/").len - 1
 
-      if entryPathLength == reqPathLength:
+      if entryPathLength == reqPathLength and entry.action == req.action:
         let zipped: seq[tuple[entryPathPart, reqPathPart: Path]] =
           zip(Path(entry.path).parentDirs.toSeq, req.path.parentDirs.toSeq)
 
