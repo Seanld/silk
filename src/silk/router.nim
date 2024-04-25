@@ -13,8 +13,8 @@ type RouteHandler* = proc (ctx: Context) {.async.}
 type HandlerEntryVal* = tuple[handler: RouteHandler, middleware: seq[Middleware]]
 type RouteTableEntry* = tuple[action: string, path: string]
 type HandlerTable* = TableRef[RouteTableEntry, HandlerEntryVal]
-type StaticSeqEntry* = tuple[rootPath: string, localDir: string]
-type StaticSeq* = seq[StaticSeqEntry]
+# Mapping from URL root path -> local dir root path, for static routes.
+type StaticTable* = TableRef[string, string]
 
 # Even if the user of the library doesn't set their own `defaultHandler`,
 # this handler will be used.
@@ -23,23 +23,37 @@ proc internalDefaultHandler(ctx: Context) =
 
 type Router* = ref object
   handlerRoutes: HandlerTable
-  staticRoutes: StaticSeq
+  staticRoutes: StaticTable
+  subrouterRoutes: TableRef[string, Router]
 
   # Called when no routes were matched.
   defaultHandler* = internalDefaultHandler
 
-proc newRouter*(handlerRoutes: HandlerTable = nil): Router =
+proc newRouter*(handlerRoutes: HandlerTable = nil, staticRoutes: StaticTable = nil, subrouterRoutes: TableRef[string, Router] = nil): Router =
   var
     newHandlerRouteTable: HandlerTable
+    newStaticRouteTable: StaticTable
+    newSubrouterRoutes: TableRef[string, Router]
 
   if handlerRoutes != nil:
     newHandlerRouteTable = handlerRoutes
   else:
     newHandlerRouteTable = newTable[RouteTableEntry, HandlerEntryVal]()
 
+  if staticRoutes != nil:
+    newStaticRouteTable = staticRoutes
+  else:
+    newStaticRouteTable = newTable[string, string]()
+
+  if subrouterRoutes != nil:
+    newSubrouterRoutes = subrouterRoutes
+  else:
+    newSubrouterRoutes = newTable[string, Router]()
+
   return Router(
     handlerRoutes: newHandlerRouteTable,
-    staticRoutes: newSeq[StaticSeqEntry](),
+    staticRoutes: newStaticRouteTable,
+    subrouterRoutes: newSubrouterRoutes,
   )
 
 proc registerHandlerRoute(r: Router, methodStr: string, path: string, handler: RouteHandler, middleware: seq[Middleware]) =
@@ -59,7 +73,7 @@ proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Mid
 
 # Any files underneath `rootPath` will be served when requested via GET.
 proc staticDir*(r: Router, rootPath: string, localDir: string) =
-  r.staticRoutes.add((rootPath, localDir))
+  r.staticRoutes[rootPath] = localDir
 
 proc matchHandlerRoute(r: Router, req: Request, ctx: Context): HandlerEntryVal =
   # This may later be optimized by sorting entries into groups
@@ -88,29 +102,43 @@ proc matchHandlerRoute(r: Router, req: Request, ctx: Context): HandlerEntryVal =
 
         return (handler, middleware)
 
-proc dispatchRoute*(r: Router, req: Request, ctx: Context) {.async.} =
+# `route` is passed, even though `req.path` exists, to allow for maintaining state for
+# subrouter dispatching without altering `req`.
+proc dispatchRoute*(r: Router, route: Path, ctx: Context) {.async.} =
   ## Calls the appropriate handler proc, or gets content of
   ## statically-routed file if appropriate, and updates `ctx.resp`
   ## with the resulting response.
 
-  let (handlerRoute, handlerMiddleware) = matchHandlerRoute(r, req, ctx)
-  if handlerRoute != nil:
-    for mw in handlerMiddleware:
-      ctx.req = mw.processRequest(req)
-    await handlerRoute(ctx)
-    for mw in handlerMiddleware:
-      ctx.resp = mw.processResponse(ctx.resp)
-    return
+  for subPath in ctx.req.path.parentDirs(fromRoot = true):
+    let
+      pathStr = subPath.string
+      handlerKey = (ctx.req.action, pathStr)
 
-  # Check for static route match.
-  for entry in r.staticRoutes:
-    let rootPathAsPath = Path(entry.rootPath)
-    if req.path.isRelativeTo(rootPathAsPath):
-      let
-        relPath = req.path.relativePath(rootPathAsPath)
-        localPath = Path(entry.localDir) / relPath
-      ctx.sendFile(localPath.string)
+    # Is a nested router, recurse with this directory as the new `/`.
+    if r.subrouterRoutes.hasKey(pathStr):
+      let newPath = Path("/") / ctx.req.path.relativePath(subPath)
+      await r.subrouterRoutes[pathStr].dispatchRoute(newPath, ctx)
       return
+
+    elif r.handlerRoutes.hasKey(handlerKey):
+      let (handlerProc, middleware) = r.handlerRoutes[handlerKey]
+      # Send request through route-specific middleware.
+      for mw in middleware:
+        ctx.req = mw.processRequest(ctx.req)
+      # Call matched handler proc and await result.
+      await handlerProc(ctx)
+      # Send response through route-specific middleware.
+      for mw in middleware:
+        ctx.resp = mw.processResponse(ctx.resp)
+      return
+
+    elif r.staticRoutes.hasKey(pathStr):
+      if ctx.req.path.isRelativeTo(subPath):
+        let
+          relPath = ctx.req.path.relativePath(subPath)
+          localPath = Path(r.staticRoutes[pathStr]) / relPath
+        ctx.sendFile(localPath.string)
+        return
 
   # Didn't match request to any route entry. Use default handler.
   if r.defaultHandler != nil:
