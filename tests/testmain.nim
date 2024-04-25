@@ -12,33 +12,35 @@ var serv = newServer(
   @[newFileLogger("log.txt").Logger],
 )
 
-serv.addMiddleware(newMsgLoggingMiddleware())
-
-proc getImg(ctx: Context) {.async.} =
+handler getImg:
   let filename = ctx.params["filename"]
   try:
     ctx.sendFile (Path("./tests/img/") / Path(filename)).string
   except:
     ctx.sendString "File does not exist!", status = STATUS_INTERNAL_SERVER_ERROR
 
-proc viewPost(ctx: Context) {.async.} =
-  let query = ctx.parseQuery()
-  let silent = try: parseBool(query["s"]) except: false
-  if not silent:
-    ctx.sendString "Viewing post #" & ctx.params["id"] & " from user '" & ctx.params["username"] & "'"
-  else:
-    ctx.sendString "Viewing post"
-
-serv.GET("/", ~> ctx.sendFile Path("./tests/index.html").string)
+serv.GET("/", handler do: ctx.sendFile Path("./tests/index.html").string)
 serv.POST(
   "/",
-  proc(ctx: Context) {.async.} =
+  handler do:
     let q = ctx.parseFormQuery()
-    ctx.sendString "Registering '$1' with email '$2'" % [q["uname"], q["uemail"]]
+    try:
+      ctx.sendString "Registering '$1' with email '$2'" % [q["uname"], q["uemail"]]
+    except:
+      ctx.sendString "Failed to parse query. Might be missing fields."
 )
 
-serv.GET("/helloworld", ~> ctx.sendString("Hello, world!"))
-serv.GET("/user/{username}/post/{id}", viewPost)
+serv.GET("/helloworld", handler do: ctx.sendString "Hello, world!")
+serv.GET(
+  "/user/{username}/post/{id}",
+  handler do:
+    let query = ctx.parseQuery()
+    let silent = try: parseBool(query["s"]) except: false
+    if not silent:
+      ctx.sendString "Viewing post #" & ctx.params["id"] & " from user '" & ctx.params["username"] & "'"
+    else:
+      ctx.sendString "Viewing post"
+)
 serv.GET("/img/{filename}", getImg, @[useCompressionMiddleware()])
 
 serv.start()
