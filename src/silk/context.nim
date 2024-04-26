@@ -9,6 +9,8 @@ import std/uri
 import ./headers
 import ./status
 
+let MIME_TYPES = newMimetypes()
+
 type Context* = ref object
   conn*: AsyncSocket
   req*: Request
@@ -38,11 +40,10 @@ proc sendString*(ctx: Context, str: string, mime: string = "text/plain", status:
 
 proc getFileMimetype(path: string): string =
   let asPath = Path(path)
-  let m = newMimetypes()
   let (_, _, ext) = asPath.splitFile()
   if ext == "":
     raise newException(Exception, "Mimetype required for sendFile (not given or found)")
-  return m.getMimetype(ext)
+  return MIME_TYPES.getMimetype(ext)
 
 proc sendFile*(ctx: Context, path: string, mime: string = "", status: StatusCode = STATUS_OK) =
   ## `mime` can be left empty, and mimetype will be recognized
