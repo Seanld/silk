@@ -3,6 +3,9 @@ import std/logging
 import std/strutils
 from std/strutils import parseBool
 
+when compileOption("profiler"):
+  import std/nimprof
+
 import silk
 import silk/middleware/compression
 import silk/middleware/logging
@@ -42,5 +45,15 @@ serv.GET(
       ctx.sendString "Viewing post"
 )
 serv.GET("/img/{filename}", getImg, @[useCompressionMiddleware()])
+
+
+when compileOption("profiler"):
+  enableProfiling()
+
+  proc ctrlc() {.noconv.} =
+    disableProfiling()
+    quit()
+
+  setControlCHook(ctrlc)
 
 serv.start()
