@@ -33,13 +33,6 @@ type Server* = ref object
   # Active middleware.
   middleware: seq[Middleware]
 
-template handler*(code: untyped): untyped =
-  proc(ctx{.inject.}: Context) {.async.} = code
-
-template handler*(name: untyped, code: untyped): untyped =
-  proc name(ctx{.inject.}: Context) {.async.} = code
-
-
 proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger]): Server =
   result = Server(
     config: config,
