@@ -23,7 +23,7 @@ type Handler = proc(): void
 
 type Node = ref object
   part: string
-  handle: Handler
+  handle: RouterEntryHandle
   children: seq[Node]
 
 proc nodeString(n: Node, level: int): string =
@@ -39,7 +39,7 @@ proc `$`(n: Node): string =
 template debugStr(str: untyped): untyped =
   echo str.astToStr, ": `", str, "`"
 
-proc newNode(part = "/", handle: Handler = nil, children: seq[Node] = @[]): Node =
+proc newNode(part = "/", handle: RouterEntryHandle = (nil, @[]), children: seq[Node] = @[]): Node =
   Node(
     part: part,
     handle: handle,
@@ -62,7 +62,7 @@ proc traverse(n: Node, key: string): FindResult =
     # There was a common prefix (partial or full).
     if prefix.len == key.len and prefix.len == n.part.len:
       # Full key matched.
-      return (n, prefix, key, n.handle != nil)
+      return (n, prefix, key, n.handle.handler != nil)
     else:
       # Key was only partially matched. Attempt further matching on children.
       let remaining = key[prefix.len..^1]
@@ -74,14 +74,14 @@ proc traverse(n: Node, key: string): FindResult =
           return next
   return (nil, prefix, key, false)
 
-proc find(n: Node, key: string): Handler =
+proc find(n: Node, key: string): RouterEntryHandle =
   let (travNode, _, _, travMatched) = n.traverse(key)
   if travMatched:
     return travNode.handle
   else:
     raise newException(KeyError, "Key does not exist in route tree")
 
-proc insert(n: Node, key: string, handler: Handler) =
+proc insert(n: Node, key: string, handler: RouterEntryHandle) =
   let (foundNode, prefix, remainder, matched) = n.traverse(key)
   if foundNode != nil:
     if matched:
@@ -96,7 +96,7 @@ proc insert(n: Node, key: string, handler: Handler) =
         handle = foundNode.handle
       ))
       foundNode.part = prefix
-      foundNode.handle = nil
+      foundNode.handle = (nil, @[])
       foundNode.children.add(newNode(
         remainder[prefix.len..^1],
         handle = handler
@@ -109,3 +109,15 @@ type Router* = ref object
     "PUT": newNode,
     "DELETE": newNode,
   }.toTable
+
+proc registerHandlerRoute(r: Router, httpMethod: string, path: string, handler: RouteHandler, middleware: seq[Middleware]) =
+  echo r.routeTrees[httpMethod] #.insert(path, (handler, middleware))
+
+proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  r.registerHandlerRoute("GET", path, handler, middleware)
+proc POST*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  r.registerHandlerRoute("POST", path, handler, middleware)
+proc PUT*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  r.registerHandlerRoute("PUT", path, handler, middleware)
+proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
+  r.registerHandlerRoute("DELETE", path, handler, middleware)
