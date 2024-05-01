@@ -55,7 +55,7 @@ proc lcp(a, b: string): string =
       continue
     return
 
-proc `$`(p: Path): string =
+proc `$`*(p: Path): string =
   result = p.string
   if p.splitFile().ext == "" and result != "/":
     result &= "/"
@@ -106,7 +106,6 @@ proc find(n: Node, keyPath: Path): RouterEntryHandle =
 
 proc insert(n: Node, keyPath: Path, handler: RouterEntryHandle) =
   let
-    # key = keyPath.string
     key = $keyPath
     (foundNode, prefix, remainder, matched) = n.traverse(key)
 
@@ -158,6 +157,7 @@ proc registerHandlerRoute(r: Router, httpMethod: string, path: var Path, handler
     i += 1
 
   r.routeTrees[httpMethod].insert(path, (handler, middleware, params))
+  # echo r.routeTrees[httpMethod]
 
 proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   var newPath = Path(path)

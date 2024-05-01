@@ -35,7 +35,7 @@ serv.POST(
 
 serv.GET("/hello/world", handler do: ctx.sendString "Hello, world!")
 serv.GET("/hello/there/", handler do: ctx.sendString "Hello, world!")
-serv.GET("/hello/wompus/", handler do: ctx.sendString "Hello, world!")
+serv.GET("/hello/{blahparam}/wompus/", handler do: ctx.sendString "Hello, world!")
 # serv.GET(
 #   "/user/{username}/post/{id}",
 #   handler do:
