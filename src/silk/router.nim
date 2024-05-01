@@ -86,17 +86,17 @@ proc insert(n: Node, key: string, handler: RouterEntryHandle) =
   if foundNode != nil:
     if matched:
       raise newException(KeyError, "Key already exists in route tree")
-    if prefix == foundNode.part:
+    if prefix == foundNode.part and prefix == key:
       foundNode.handle = handler
       return
     else:
-      debugStr prefix
-      foundNode.children.add(newNode(
-        foundNode.part[prefix.len..^1],
-        handle = foundNode.handle
-      ))
-      foundNode.part = prefix
-      foundNode.handle = (nil, @[])
+      if prefix.len < foundNode.part.len:
+        foundNode.children.add(newNode(
+          foundNode.part[prefix.len..^1],
+          handle = foundNode.handle
+        ))
+        foundNode.part = prefix
+        foundNode.handle = (nil, @[])
       foundNode.children.add(newNode(
         remainder[prefix.len..^1],
         handle = handler
@@ -126,8 +126,12 @@ proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Mid
   r.registerHandlerRoute("DELETE", path, handler, middleware)
 
 proc dispatchRoute*(r: Router, path: Path, ctx: Context) {.async.} =
-  echo r.routeTrees[ctx.req.action]
-  let (h, mw) = r.routeTrees[ctx.req.action].find(path.string)
-  echo repr(h)
-  echo repr(mw)
-  await h(ctx)
+  let (matchedRouteHandler, matchedRouteMiddleware) = r.routeTrees[ctx.req.action].find(path.string)
+
+  for mw in matchedRouteMiddleware:
+    ctx.req = mw.processRequest(ctx.req)
+  
+  await matchedRouteHandler(ctx)
+
+  for mw in matchedRouteMiddleware:
+    ctx.resp = mw.processResponse(ctx.resp)
