@@ -33,7 +33,7 @@ serv.POST(
       ctx.sendString "Failed to parse query. Might be missing fields."
 )
 
-serv.GET("/helloworld", handler do: ctx.sendString "Hello, world!")
+serv.GET("/helloworld/", handler do: ctx.sendString "Hello, world!")
 serv.GET(
   "/user/{username}/post/{id}",
   handler do:

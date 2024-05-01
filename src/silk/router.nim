@@ -10,8 +10,9 @@ import ./headers
 import ./status
 import ./middleware
 
+type NodeParam = tuple[idx: int, name: string]
 type RouteHandler* = proc(ctx: Context) {.async.}
-type RouterEntryHandle = tuple[handler: RouteHandler, middleware: seq[Middleware]]
+type RouterEntryHandle = tuple[handler: RouteHandler, middleware: seq[Middleware], params: seq[NodeParam]]
 
 template handler*(code: untyped): untyped =
   proc(ctx{.inject.}: Context) {.async.} = code
@@ -26,6 +27,13 @@ type Node = ref object
   handle: RouterEntryHandle
   children: seq[Node]
 
+proc newNode(part = "/", handle: RouterEntryHandle = (nil, @[], @[]), children: seq[Node] = @[]): Node =
+  Node(
+    part: part,
+    handle: handle,
+    children: children,
+  )
+
 proc nodeString(n: Node, level: int): string =
   result = "<" & n.part & " " & repr(n.handle) & ">\n"
   for child in n.children:
@@ -38,13 +46,6 @@ proc `$`(n: Node): string =
 
 template debugStr(str: untyped): untyped =
   echo str.astToStr, ": `", str, "`"
-
-proc newNode(part = "/", handle: RouterEntryHandle = (nil, @[]), children: seq[Node] = @[]): Node =
-  Node(
-    part: part,
-    handle: handle,
-    children: children,
-  )
 
 proc lcp(a, b: string): string =
   ## Longest common prefix of two strings.
@@ -74,15 +75,36 @@ proc traverse(n: Node, key: string): FindResult =
           return next
   return (nil, prefix, key, false)
 
-proc find(n: Node, key: string): RouterEntryHandle =
-  let (travNode, _, _, travMatched) = n.traverse(key)
+proc normalizePathStrParams(p: Path): Path =
+  var
+    newPathStr: string
+    inParam = false
+  for c in p.string:
+    if not inParam:
+      newPathStr &= c
+    if c == '{':
+      inParam = true
+      continue
+    elif c == '}':
+      inParam = false
+      continue
+  return Path(newPathStr)
+
+proc find(n: Node, keyPath: Path): RouterEntryHandle =
+  # Remove params from URL to match
+
+  let
+    key = keyPath.string
+    (travNode, _, _, travMatched) = n.traverse(key)
   if travMatched:
     return travNode.handle
   else:
     raise newException(KeyError, "Key does not exist in route tree")
 
-proc insert(n: Node, key: string, handler: RouterEntryHandle) =
-  let (foundNode, prefix, remainder, matched) = n.traverse(key)
+proc insert(n: Node, keyPath: Path, handler: RouterEntryHandle) =
+  let
+    key = keyPath.string
+    (foundNode, prefix, remainder, matched) = n.traverse(key)
   if foundNode != nil:
     if matched:
       raise newException(KeyError, "Key already exists in route tree")
@@ -96,7 +118,7 @@ proc insert(n: Node, key: string, handler: RouterEntryHandle) =
           handle = foundNode.handle
         ))
         foundNode.part = prefix
-        foundNode.handle = (nil, @[])
+        foundNode.handle = (nil, @[], @[])
       foundNode.children.add(newNode(
         remainder[prefix.len..^1],
         handle = handler
@@ -113,20 +135,48 @@ type Router* = ref object
 proc newRouter*(): Router =
   Router()
 
-proc registerHandlerRoute(r: Router, httpMethod: string, path: string, handler: RouteHandler, middleware: seq[Middleware]) =
-  r.routeTrees[httpMethod].insert(path, (handler, middleware))
+proc registerHandlerRoute(r: Router, httpMethod: string, path: var Path, handler: RouteHandler, middleware: seq[Middleware]) =
+  path.normalizePath()
+
+  # Parse URL path params
+  var
+    i = 0
+    params: seq[NodeParam]
+
+  for parentDir in path.parentDirs:
+    let part = parentDir.lastPathPart().string
+    if part.len > 2 and part[0] == '{' and part[^1] == '}':
+      params.add((idx: i, name: part[1..^2]))
+    i += 1
+
+  r.routeTrees[httpMethod].insert(path, (handler, middleware, params))
 
 proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
-  r.registerHandlerRoute("GET", path, handler, middleware)
+  var newPath = Path(path)
+  r.registerHandlerRoute("GET", newPath, handler, middleware)
 proc POST*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
-  r.registerHandlerRoute("POST", path, handler, middleware)
+  var newPath = Path(path)
+  r.registerHandlerRoute("POST", newPath, handler, middleware)
 proc PUT*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
-  r.registerHandlerRoute("PUT", path, handler, middleware)
+  var newPath = Path(path)
+  r.registerHandlerRoute("PUT", newPath, handler, middleware)
 proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
-  r.registerHandlerRoute("DELETE", path, handler, middleware)
+  var newPath = Path(path)
+  r.registerHandlerRoute("DELETE", newPath, handler, middleware)
 
 proc dispatchRoute*(r: Router, path: Path, ctx: Context) {.async.} =
-  let (matchedRouteHandler, matchedRouteMiddleware) = r.routeTrees[ctx.req.action].find(path.string)
+  let (matchedRouteHandler, matchedRouteMiddleware, matchedRouteParams) = r.routeTrees[ctx.req.action].find(path)
+
+  # Parse URL path params
+  var paramTable: Table[string, string]
+  for routeParam in matchedRouteParams:
+    var tempPath = Path(path.string)
+    for n in 0 ..< routeParam.idx:
+      tempPath = tempPath.parentDir()
+    let last = tempPath.lastPathPart()
+    paramTable[routeParam.name] = last.string
+
+  ctx.params = paramTable
 
   for mw in matchedRouteMiddleware:
     ctx.req = mw.processRequest(ctx.req)
