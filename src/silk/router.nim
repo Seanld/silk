@@ -55,6 +55,11 @@ proc lcp(a, b: string): string =
       continue
     return
 
+proc `$`(p: Path): string =
+  result = p.string
+  if p.splitFile().ext == "" and result != "/":
+    result &= "/"
+
 type FindResult = tuple[node: Node, prefix: string, remainder: string, matched: bool]
 
 proc traverse(n: Node, key: string): FindResult =
@@ -91,10 +96,8 @@ proc normalizePathStrParams(p: Path): Path =
   return Path(newPathStr)
 
 proc find(n: Node, keyPath: Path): RouterEntryHandle =
-  # Remove params from URL to match
-
   let
-    key = keyPath.string
+    key = $keyPath
     (travNode, _, _, travMatched) = n.traverse(key)
   if travMatched:
     return travNode.handle
@@ -103,14 +106,18 @@ proc find(n: Node, keyPath: Path): RouterEntryHandle =
 
 proc insert(n: Node, keyPath: Path, handler: RouterEntryHandle) =
   let
-    key = keyPath.string
+    # key = keyPath.string
+    key = $keyPath
     (foundNode, prefix, remainder, matched) = n.traverse(key)
+
   if foundNode != nil:
     if matched:
       raise newException(KeyError, "Key already exists in route tree")
+
     if prefix == foundNode.part and prefix == key:
       foundNode.handle = handler
       return
+
     else:
       if prefix.len < foundNode.part.len:
         foundNode.children.add(newNode(
@@ -119,6 +126,7 @@ proc insert(n: Node, keyPath: Path, handler: RouterEntryHandle) =
         ))
         foundNode.part = prefix
         foundNode.handle = (nil, @[], @[])
+
       foundNode.children.add(newNode(
         remainder[prefix.len..^1],
         handle = handler
