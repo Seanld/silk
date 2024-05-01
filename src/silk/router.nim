@@ -104,14 +104,17 @@ proc insert(n: Node, key: string, handler: RouterEntryHandle) =
 
 type Router* = ref object
   routeTrees = {
-    "GET": newNode,
-    "POST": newNode,
-    "PUT": newNode,
-    "DELETE": newNode,
+    "GET": newNode(),
+    "POST": newNode(),
+    "PUT": newNode(),
+    "DELETE": newNode(),
   }.toTable
 
+proc newRouter*(): Router =
+  Router()
+
 proc registerHandlerRoute(r: Router, httpMethod: string, path: string, handler: RouteHandler, middleware: seq[Middleware]) =
-  echo r.routeTrees[httpMethod] #.insert(path, (handler, middleware))
+  r.routeTrees[httpMethod].insert(path, (handler, middleware))
 
 proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   r.registerHandlerRoute("GET", path, handler, middleware)
@@ -121,3 +124,10 @@ proc PUT*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middle
   r.registerHandlerRoute("PUT", path, handler, middleware)
 proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   r.registerHandlerRoute("DELETE", path, handler, middleware)
+
+proc dispatchRoute*(r: Router, path: Path, ctx: Context) {.async.} =
+  echo r.routeTrees[ctx.req.action]
+  let (h, mw) = r.routeTrees[ctx.req.action].find(path.string)
+  echo repr(h)
+  echo repr(mw)
+  await h(ctx)

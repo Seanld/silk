@@ -58,9 +58,9 @@ proc PUT*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middle
 proc DELETE*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   s.router.DELETE(path, handler, middleware)
 
-# Any files underneath `rootPath` will be served when requested via GET.
-proc staticDir*(s: Server, rootPath: string, localDir: string) =
-  s.router.staticDir(rootPath, localDir)
+# # Any files underneath `rootPath` will be served when requested via GET.
+# proc staticDir*(s: Server, rootPath: string, localDir: string) =
+#   s.router.staticDir(rootPath, localDir)
 
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   ## Executed as soon as a new connection is made.
