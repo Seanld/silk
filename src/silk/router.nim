@@ -42,7 +42,7 @@ proc nodeString(n: Node, level: int): string =
     result &= child.nodeString(level + 1)
 
 proc `$`(n: Node): string =
-  "-----\n" & n.nodeString(1) & "\n-----"
+  "-----\n" & n.nodeString(1) & "-----\n"
 
 template debugStr(str: untyped): untyped =
   echo str.astToStr, ": `", str, "`"
@@ -157,7 +157,7 @@ proc registerHandlerRoute(r: Router, httpMethod: string, path: var Path, handler
     i += 1
 
   r.routeTrees[httpMethod].insert(path, (handler, middleware, params))
-  echo r.routeTrees[httpMethod]
+  # echo r.routeTrees[httpMethod]
 
 proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   var newPath = Path(path)
