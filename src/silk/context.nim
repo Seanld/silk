@@ -29,6 +29,9 @@ proc parseQuery*(ctx: Context, queryStr = ""): Table[string, string] =
   for key, val in q.decodeQuery():
     result[key] = val
 
+proc parseFormQuery*(ctx: Context): Table[string, string] =
+  ctx.parseQuery(ctx.req.content)
+
 proc noContent*(ctx: Context, status: StatusCode) =
   ctx.resp = newResponse(status)
 
@@ -61,6 +64,3 @@ proc sendFileAsync*(ctx: Context, path: string, mime: string = "", status: Statu
     actualMime = getFileMimetype(path)
   let af = openAsync(path)
   ctx.sendString(await af.readAll(), actualMime, status)
-
-proc parseFormQuery*(ctx: Context): Table[string, string] =
-  ctx.parseQuery(ctx.req.content)

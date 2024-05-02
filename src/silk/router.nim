@@ -1,8 +1,6 @@
 import std/tables
 import std/asyncdispatch
 import std/paths
-import std/algorithm
-from std/sequtils import zip, toSeq
 from std/strutils import split, contains
 
 import ./context
@@ -157,7 +155,6 @@ proc registerHandlerRoute(r: Router, httpMethod: string, path: var Path, handler
     i += 1
 
   r.routeTrees[httpMethod].insert(path, (handler, middleware, params))
-  # echo r.routeTrees[httpMethod]
 
 proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   var newPath = Path(path)
