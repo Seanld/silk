@@ -78,22 +78,8 @@ proc traverse(n: Node, key: string): FindResult =
         let next = child.traverse(remaining)
         if next.node != nil:
           return next
+      return (n, prefix, key, false)
   return (nil, prefix, key, false)
-
-proc normalizePathStrParams(p: Path): Path =
-  var
-    newPathStr: string
-    inParam = false
-  for c in p.string:
-    if not inParam:
-      newPathStr &= c
-    if c == '{':
-      inParam = true
-      continue
-    elif c == '}':
-      inParam = false
-      continue
-  return Path(newPathStr)
 
 proc find(n: Node, keyPath: Path): RouterEntryHandle =
   let
@@ -105,7 +91,7 @@ proc find(n: Node, keyPath: Path): RouterEntryHandle =
     raise newException(KeyError, "Key does not exist in route tree")
 
 proc insert(n: Node, keyPath: Path, handler: RouterEntryHandle) =
-  let
+  var
     key = $keyPath
     (foundNode, prefix, remainder, matched) = n.traverse(key)
 
@@ -119,17 +105,31 @@ proc insert(n: Node, keyPath: Path, handler: RouterEntryHandle) =
 
     else:
       if prefix.len < foundNode.part.len:
+        let childrenTemp = foundNode.children
+        foundNode.children = @[]
         foundNode.children.add(newNode(
           foundNode.part[prefix.len..^1],
-          handle = foundNode.handle
+          handle = foundNode.handle,
+          children = childrenTemp,
         ))
         foundNode.part = prefix
         foundNode.handle = (nil, @[], @[])
 
-      foundNode.children.add(newNode(
-        remainder[prefix.len..^1],
-        handle = handler
-      ))
+      var prevNode = foundNode
+      let movedHandler = foundNode.handle
+      remainder = remainder[prefix.len..^1]
+
+      while remainder.len > 0:
+        let
+          splitted = remainder.split("/", 1)
+          newestNode = newNode(
+            splitted[0] & "/",
+            handle = handler,
+          )
+        prevNode.children.add(newestNode)
+        prevNode.handle = (nil, @[], @[])
+        prevNode = newestNode
+        remainder = splitted[1]
 
 type Router* = ref object
   routeTrees = {
@@ -157,7 +157,7 @@ proc registerHandlerRoute(r: Router, httpMethod: string, path: var Path, handler
     i += 1
 
   r.routeTrees[httpMethod].insert(path, (handler, middleware, params))
-  # echo r.routeTrees[httpMethod]
+  echo r.routeTrees[httpMethod]
 
 proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   var newPath = Path(path)
