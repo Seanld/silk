@@ -8,9 +8,9 @@ import ./headers
 import ./status
 import ./middleware
 
-type NodeParam = tuple[idx: int, name: string]
+type PathParams = TableRef[string, string]
 type RouteHandler* = proc(ctx: Context) {.async.}
-type RouterEntryHandle = tuple[handler: RouteHandler, middleware: seq[Middleware], params: seq[NodeParam]]
+type RouterEntryHandle = tuple[handler: RouteHandler, middleware: seq[Middleware]]
 
 template handler*(code: untyped): untyped =
   proc(ctx{.inject.}: Context) {.async.} = code
@@ -18,14 +18,12 @@ template handler*(code: untyped): untyped =
 template handler*(name: untyped, code: untyped): untyped =
   proc name(ctx{.inject.}: Context) {.async.} = code
 
-type Handler = proc(): void
-
 type Node = ref object
   part: string
   handle: RouterEntryHandle
   children: seq[Node]
 
-proc newNode(part = "/", handle: RouterEntryHandle = (nil, @[], @[]), children: seq[Node] = @[]): Node =
+proc newNode(part = "/", handle: RouterEntryHandle = (nil, @[]), children: seq[Node] = @[]): Node =
   Node(
     part: part,
     handle: handle,
@@ -58,76 +56,50 @@ proc `$`*(p: Path): string =
   if p.splitFile().ext == "" and result != "/":
     result &= "/"
 
-type FindResult = tuple[node: Node, prefix: string, remainder: string, matched: bool]
+proc search(n: Node, pathParts: seq[string], paramsDest: PathParams): tuple[node: Node, matched: bool, remainingParts: seq[string]] =
+  let remainingParts = pathParts[1..^1]
 
-proc traverse(n: Node, key: string): FindResult =
-  let prefix = lcp(n.part, key)
-  if prefix.len > 0:
-    # There was a common prefix (partial or full).
-    if prefix.len == key.len and prefix.len == n.part.len:
-      # Full key matched.
-      return (n, prefix, key, n.handle.handler != nil)
-    else:
-      # Key was only partially matched. Attempt further matching on children.
-      let remaining = key[prefix.len..^1]
-      if n.children.len == 0:
-        return (n, prefix, key, false)
-      for child in n.children:
-        let next = child.traverse(remaining)
-        if next.node != nil:
-          return next
-      return (n, prefix, key, false)
-  return (nil, prefix, key, false)
+  if paramsDest != nil and (n.part[0] == '{' and n.part[^1] == '}'):
+    paramsDest[n.part[1..^2]] = pathParts[0]
 
-proc find(n: Node, keyPath: Path): RouterEntryHandle =
-  let
-    key = $keyPath
-    (travNode, _, _, travMatched) = n.traverse(key)
-  if travMatched:
-    return travNode.handle
-  else:
-    raise newException(KeyError, "Key does not exist in route tree")
+  # Is the end of the given path, end recursion.
+  if pathParts.len == 1 and n.handle.handler != nil:
+    return (n, true, remainingParts)
+  elif pathParts.len == 1 and n.handle.handler == nil:
+    return (n, false, remainingParts)
 
-proc insert(n: Node, keyPath: Path, handler: RouterEntryHandle) =
+  if pathParts.len > 1 and n.children.len > 0:
+    # This node has children, and we still have more path to match.
+    for child in n.children:
+      if child.part == pathParts[1] or (child.part[0] == '{' and child.part[^1] == '}'):
+        return child.search(remainingParts, paramsDest)
+
+  # raise newException(RoutingError, "Could not match route")
+  return (n, false, remainingParts)
+
+proc search(n: Node, p: Path, paramsDest: PathParams): tuple[node: Node, matched: bool, remainingParts: seq[string]] =
   var
-    key = $keyPath
-    (foundNode, prefix, remainder, matched) = n.traverse(key)
+    parts: seq[string]
+    pCopy = Path(p.string)
 
-  if foundNode != nil:
-    if matched:
-      raise newException(KeyError, "Key already exists in route tree")
+  pCopy.normalizePath()
 
-    if prefix == foundNode.part and prefix == key:
-      foundNode.handle = handler
-      return
+  for part in pCopy.parentDirs(true, true):
+    let asStr = part.lastPathPart.string
+    parts.add(if asStr.len > 0: asStr else: "/")
 
-    else:
-      if prefix.len < foundNode.part.len:
-        let childrenTemp = foundNode.children
-        foundNode.children = @[]
-        foundNode.children.add(newNode(
-          foundNode.part[prefix.len..^1],
-          handle = foundNode.handle,
-          children = childrenTemp,
-        ))
-        foundNode.part = prefix
-        foundNode.handle = (nil, @[], @[])
+  return n.search(parts, paramsDest)
 
-      var prevNode = foundNode
-      let movedHandler = foundNode.handle
-      remainder = remainder[prefix.len..^1]
-
-      while remainder.len > 0:
-        let
-          splitted = remainder.split("/", 1)
-          newestNode = newNode(
-            splitted[0] & "/",
-            handle = handler,
-          )
-        prevNode.children.add(newestNode)
-        prevNode.handle = (nil, @[], @[])
-        prevNode = newestNode
-        remainder = splitted[1]
+proc insert(n: Node, p: Path, handler: RouterEntryHandle) =
+  let results = n.search(p, nil)
+  var parentNode = results.node
+  for part in results.remainingParts:
+    let newestNode = newNode(
+      part = part,
+    )
+    parentNode.children.add(newestNode)
+    parentNode = newestNode
+  parentNode.handle = handler
 
 type Router* = ref object
   routeTrees = {
@@ -140,21 +112,8 @@ type Router* = ref object
 proc newRouter*(): Router =
   Router()
 
-proc registerHandlerRoute(r: Router, httpMethod: string, path: var Path, handler: RouteHandler, middleware: seq[Middleware]) =
-  path.normalizePath()
-
-  # Parse URL path params
-  var
-    i = 0
-    params: seq[NodeParam]
-
-  for parentDir in path.parentDirs:
-    let part = parentDir.lastPathPart().string
-    if part.len > 2 and part[0] == '{' and part[^1] == '}':
-      params.add((idx: i, name: part[1..^2]))
-    i += 1
-
-  r.routeTrees[httpMethod].insert(path, (handler, middleware, params))
+proc registerHandlerRoute(r: Router, httpMethod: string, path: Path, handler: RouteHandler, middleware: seq[Middleware]) =
+  r.routeTrees[httpMethod].insert(path, (handler, middleware))
 
 proc GET*(r: Router, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   var newPath = Path(path)
@@ -169,24 +128,17 @@ proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Mid
   var newPath = Path(path)
   r.registerHandlerRoute("DELETE", newPath, handler, middleware)
 
+type RoutingError = object of CatchableError
+
 proc dispatchRoute*(r: Router, path: Path, ctx: Context) {.async.} =
-  let (matchedRouteHandler, matchedRouteMiddleware, matchedRouteParams) = r.routeTrees[ctx.req.action].find(path)
+  let searchResults = r.routeTrees[ctx.req.action].search(path, ctx.params)
+  if searchResults.node == nil or not searchResults.matched:
+    raise newException(RoutingError, "Could not match route")
 
-  # Parse URL path params
-  var paramTable: Table[string, string]
-  for routeParam in matchedRouteParams:
-    var tempPath = Path(path.string)
-    for n in 0 ..< routeParam.idx:
-      tempPath = tempPath.parentDir()
-    let last = tempPath.lastPathPart()
-    paramTable[routeParam.name] = last.string
-
-  ctx.params = paramTable
-
-  for mw in matchedRouteMiddleware:
+  for mw in searchResults.node.handle.middleware:
     ctx.req = mw.processRequest(ctx.req)
   
-  await matchedRouteHandler(ctx)
+  await searchResults.node.handle.handler(ctx)
 
-  for mw in matchedRouteMiddleware:
+  for mw in searchResults.node.handle.middleware:
     ctx.resp = mw.processResponse(ctx.resp)
