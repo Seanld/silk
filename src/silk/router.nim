@@ -5,7 +5,6 @@ from std/strutils import split, contains
 
 import ./context
 import ./headers
-import ./status
 import ./middleware
 
 type PathParams = TableRef[string, string]
