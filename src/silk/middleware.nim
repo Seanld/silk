@@ -27,8 +27,8 @@ proc init*(m: Middleware) =
   ## for some middleware to handle setup tasks.
   discard
 
-# type ProcessReqExitStatus = enum
-#   discard
+type ProcessReqExitStatus* = enum
+  NORMAL, SKIP_ROUTING
 
 method processRequest*(m: Middleware, req: Request) {.base.} =
   ## Called by the `Server` instance when a request is inbound.
