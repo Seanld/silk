@@ -5,11 +5,11 @@
 
 import std/paths
 import std/asyncdispatch
+import std/os
 
 import ../middleware
 import ../headers
 import ../context
-import ../status
 
 type StaticRouteTableInit = openArray[tuple[virtualPath: string, localPath: string]]
 type StaticRouteTable = seq[tuple[virtualPath: string, localPath: string]]
@@ -36,12 +36,15 @@ method processRequest*(m: StaticMiddleware, ctx: Context, req: Request): Future[
   for route in m.routes:
     let sandboxDir = Path(route.virtualPath)
     if req.path.isRelativeTo(sandboxDir):
-      let relPath = req.path.relativePath(sandboxDir)
-      try:
-        await ctx.sendFileAsync((Path(route.localPath) / relPath).string)
-      except OSError:
-        ctx.noContent(STATUS_NOT_FOUND)
-      return SKIP_ROUTING
+      let
+        relPath = req.path.relativePath(sandboxDir)
+        finalPath = (Path(route.localPath) / relPath).string
+      if fileExists(finalPath):
+        try:
+          await ctx.sendFileAsync(finalPath)
+          return SKIP_ROUTING
+        except OSError:
+          discard
   return NORMAL
 
 method processResponse*(m: StaticMiddleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.async.} =
