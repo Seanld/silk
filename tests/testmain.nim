@@ -9,18 +9,18 @@ when compileOption("profiler"):
 import silk
 import silk/middleware/compression
 import silk/middleware/logging
+import silk/middleware/staticserve
 
 var serv = newServer(
   ServerConfig(host: "0.0.0.0", port: Port(8080)),
   @[newFileLogger("log.txt").Logger],
+  @[
+    useStaticMiddleware({
+      "/img": "./tests/img",
+    }),
+    useCompressionMiddleware(),
+  ],
 )
-
-handler getImg:
-  let filename = ctx.params["filename"]
-  try:
-    ctx.sendFile (Path("./tests/img/") / Path(filename)).string
-  except:
-    ctx.sendString "File does not exist!", status = STATUS_INTERNAL_SERVER_ERROR
 
 serv.GET("/", handler do: ctx.sendFile Path("./tests/index.html").string)
 serv.POST(
@@ -48,7 +48,6 @@ serv.GET(
       ctx.sendString "Viewing post"
 )
 serv.GET("/hello/{blahparam}/wompus/test", handler do: ctx.sendString "yo mama")
-serv.GET("/img/{filename}", getImg, @[useCompressionMiddleware()])
 
 
 when compileOption("profiler"):

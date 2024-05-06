@@ -3,11 +3,13 @@
 import std/logging
 import std/strformat
 import std/tables
+import std/asyncdispatch
 from std/uri import `$`
 
 import ../middleware
 import ../headers
 import ../status
+import ../context
 
 export logging
 
@@ -23,14 +25,14 @@ proc newMsgLoggingMiddleware*(setting: MsgLoggingMiddlewareSetting = lmsMinimal)
 proc useMsgLoggingMiddleware*(setting: MsgLoggingMiddlewareSetting = lmsMinimal): Middleware =
   newMsgLoggingMiddleware(setting).Middleware
 
-method processRequest*(m: MsgLoggingMiddleware, req: Request) =
+method processRequest*(m: MsgLoggingMiddleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.async.} =
   var msg = ""
   case m.setting:
     of lmsMinimal, lmsVerbose:
       msg = &"-> {req.remoteAddr} requested {$req.uri}"
   info(msg)
 
-method processResponse*(m: MsgLoggingMiddleware, resp: Response) =
+method processResponse*(m: MsgLoggingMiddleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.async.} =
   var msg = ""
   case m.setting:
     of lmsMinimal, lmsVerbose:

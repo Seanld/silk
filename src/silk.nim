@@ -31,19 +31,17 @@ type Server* = ref object
   loggers: seq[Logger]
 
   # Active middleware.
-  middleware: seq[Middleware]
+  middleware*: seq[Middleware]
 
-proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger]): Server =
+proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger], middleware: seq[Middleware] = @[]): Server =
   result = Server(
     config: config,
     router: newRouter(),
     loggers: loggers,
+    middleware: middleware,
   )
   for l in loggers:
     addHandler(l)
-
-proc addMiddleware*(s: Server, m: Middleware) =
-  s.middleware.add(m)
 
 proc addLogger*(s: Server, l: Logger) =
   s.loggers.add(l)
@@ -58,10 +56,6 @@ proc PUT*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middle
 proc DELETE*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   s.router.DELETE(path, handler, middleware)
 
-# # Any files underneath `rootPath` will be served when requested via GET.
-# proc staticDir*(s: Server, rootPath: string, localDir: string) =
-#   s.router.staticDir(rootPath, localDir)
-
 proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
   ## Executed as soon as a new connection is made.
   var req: Request
@@ -74,16 +68,22 @@ proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
 
   var ctx = newContext(client, req)
 
+  var skip = false
+
   # Send request through middleware pipeline.
   for mw in s.middleware:
-    mw.processRequest(req)
+    let status = await mw.processRequest(ctx, req)
+    if status == SKIP_ROUTING:
+      skip = true
+      break
 
   # Dispatch context to router to obtain a relevant `Response`.
-  await s.router.dispatchRoute(req.path, ctx)
+  if not skip:
+    await s.router.dispatchRoute(req.path, ctx)
 
   # Send response through middleware pipeline.
   for mw in s.middleware:
-    mw.processResponse(ctx.resp)
+    discard await mw.processResponse(ctx, ctx.resp)
 
   # Send response to client.
   await client.send($ctx.resp)

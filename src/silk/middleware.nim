@@ -6,7 +6,10 @@
 # possible. Will have to come up with some clean approach as
 # a workaround.
 
+import std/asyncdispatch
+
 import ./headers
+import ./context
 
 type Middleware* = ref object of RootObj
   discard
@@ -27,10 +30,10 @@ proc init*(m: Middleware) =
   ## for some middleware to handle setup tasks.
   discard
 
-type ProcessReqExitStatus* = enum
+type ProcessingExitStatus* = enum
   NORMAL, SKIP_ROUTING
 
-method processRequest*(m: Middleware, req: Request) {.base.} =
+method processRequest*(m: Middleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.base, async.} =
   ## Called by the `Server` instance when a request is inbound.
   ## Operations on the request (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is handled
@@ -38,7 +41,7 @@ method processRequest*(m: Middleware, req: Request) {.base.} =
   ## `ProcessStatus` indicates to the `Server` how to proceed after.
   discard
 
-method processResponse*(m: Middleware, resp: Response) {.base.} =
+method processResponse*(m: Middleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.base, async.} =
   ## Called by the `Server` instance when a response is outbound.
   ## Operations on the response (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is sent to

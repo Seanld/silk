@@ -134,10 +134,16 @@ proc dispatchRoute*(r: Router, path: Path, ctx: Context) {.async.} =
   if searchResults.node == nil or not searchResults.matched:
     raise newException(RoutingError, "Could not match route")
 
-  for mw in searchResults.node.handle.middleware:
-    mw.processRequest(ctx.req)
-  
-  await searchResults.node.handle.handler(ctx)
+  var skip = false
 
   for mw in searchResults.node.handle.middleware:
-    mw.processResponse(ctx.resp)
+    let result = await mw.processRequest(ctx, ctx.req)
+    if result == SKIP_ROUTING:
+      skip = true
+      break
+
+  if not skip:
+    await searchResults.node.handle.handler(ctx)
+
+  for mw in searchResults.node.handle.middleware:
+    discard await mw.processResponse(ctx, ctx.resp)

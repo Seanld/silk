@@ -35,7 +35,7 @@ proc parseFormQuery*(ctx: Context): Table[string, string] =
 proc noContent*(ctx: Context, status: StatusCode) =
   ctx.resp = newResponse(status)
 
-proc sendString*(ctx: Context, str: string, mime: string = "text/plain", status: StatusCode = STATUS_OK) =
+proc sendString*(ctx: Context, str: string, mime: string = "text/plain", status = STATUS_OK) =
   let resp = newResponse(status, content = str)
   resp.headerFields["Content-Type"] = mime & "; charset=utf-8"
   resp.headerFields["Content-Length"] = $str.len
@@ -48,7 +48,7 @@ proc getFileMimetype(path: string): string =
     raise newException(Exception, "Mimetype required for sendFile (not given or found)")
   return MIME_TYPES.getMimetype(ext)
 
-proc sendFile*(ctx: Context, path: string, mime: string = "", status: StatusCode = STATUS_OK) =
+proc sendFile*(ctx: Context, path: string, mime: string = "", status = STATUS_OK) =
   ## `mime` can be left empty, and mimetype will be recognized
   ## based on file extension, if a file extension exists. Otherwise
   ## an exception will be raised.
@@ -57,10 +57,11 @@ proc sendFile*(ctx: Context, path: string, mime: string = "", status: StatusCode
     actualMime = getFileMimetype(path)
   ctx.sendString(readFile(path), actualMime, status)
 
-proc sendFileAsync*(ctx: Context, path: string, mime: string = "", status: StatusCode = STATUS_OK) {.async.} =
+proc sendFileAsync*(ctx: Context, path: string, mime: string = "", status = STATUS_OK) {.async.} =
   ## Same as `sendFile`, but asynchronous.
   var actualMime = mime
   if mime == "":
     actualMime = getFileMimetype(path)
   let af = openAsync(path)
-  ctx.sendString(await af.readAll(), actualMime, status)
+  let data = await af.readAll()
+  ctx.sendString(data, actualMime, status)
