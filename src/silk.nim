@@ -76,14 +76,14 @@ proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
 
   # Send request through middleware pipeline.
   for mw in s.middleware:
-    ctx.req = mw.processRequest(req)
+    mw.processRequest(req)
 
   # Dispatch context to router to obtain a relevant `Response`.
   await s.router.dispatchRoute(req.path, ctx)
 
   # Send response through middleware pipeline.
   for mw in s.middleware:
-    ctx.resp = mw.processResponse(ctx.resp)
+    mw.processResponse(ctx.resp)
 
   # Send response to client.
   await client.send($ctx.resp)

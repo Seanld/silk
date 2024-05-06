@@ -135,9 +135,9 @@ proc dispatchRoute*(r: Router, path: Path, ctx: Context) {.async.} =
     raise newException(RoutingError, "Could not match route")
 
   for mw in searchResults.node.handle.middleware:
-    ctx.req = mw.processRequest(ctx.req)
+    mw.processRequest(ctx.req)
   
   await searchResults.node.handle.handler(ctx)
 
   for mw in searchResults.node.handle.middleware:
-    ctx.resp = mw.processResponse(ctx.resp)
+    mw.processResponse(ctx.resp)

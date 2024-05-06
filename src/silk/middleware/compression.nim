@@ -25,11 +25,10 @@ proc newCompressionMiddleware*(level: int = BestSpeed, format: CompressedDataFor
 proc useCompressionMiddleware*(level: int = BestSpeed, format: CompressedDataFormat = dfGzip): Middleware =
   newCompressionMiddleware(level, format).Middleware
 
-method processRequest*(m: CompressionMiddleware, req: Request): Request =
-  req
+method processRequest*(m: CompressionMiddleware, req: Request) =
+  discard
 
-method processResponse*(m: CompressionMiddleware, resp: Response): Response =
+method processResponse*(m: CompressionMiddleware, resp: Response) =
   resp.content = resp.content.compress(m.level, m.format)
   resp.headerFields["Content-Encoding"] = FORMAT_MAPPING[m.format]
   resp.headerFields["Content-Length"] = $resp.content.len
-  return resp

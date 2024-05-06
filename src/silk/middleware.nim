@@ -27,17 +27,20 @@ proc init*(m: Middleware) =
   ## for some middleware to handle setup tasks.
   discard
 
-method processRequest*(m: Middleware, req: Request): Request {.base.} =
+# type ProcessReqExitStatus = enum
+#   discard
+
+method processRequest*(m: Middleware, req: Request) {.base.} =
   ## Called by the `Server` instance when a request is inbound.
   ## Operations on the request (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is handled
   ## by the `Server` if it's the last middleware in the pipeline.
   ## `ProcessStatus` indicates to the `Server` how to proceed after.
-  req
+  discard
 
-method processResponse*(m: Middleware, resp: Response): Response {.base.} =
+method processResponse*(m: Middleware, resp: Response) {.base.} =
   ## Called by the `Server` instance when a response is outbound.
   ## Operations on the response (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is sent to
   ## the client if it is the last middleware in the pipeline.
-  resp
+  discard
