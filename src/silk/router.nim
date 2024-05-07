@@ -6,16 +6,13 @@ from std/strutils import split, contains
 import ./context
 import ./headers
 import ./middleware
+import ./status
+import ./serverconfig
+import ./sugar
 
 type PathParams = TableRef[string, string]
 type RouteHandler* = proc(ctx: Context) {.async.}
 type RouterEntryHandle = tuple[handler: RouteHandler, middleware: seq[Middleware]]
-
-template handler*(code: untyped): untyped =
-  proc(ctx{.inject.}: Context) {.async.} = code
-
-template handler*(name: untyped, code: untyped): untyped =
-  proc name(ctx{.inject.}: Context) {.async.} = code
 
 type Node = ref object
   part: string
@@ -127,12 +124,19 @@ proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Mid
   var newPath = Path(path)
   r.registerHandlerRoute("DELETE", newPath, handler, middleware)
 
+proc defaultHandler(ctx: Context) {.async.} =
+  ctx.noContent(STATUS_NOT_FOUND)
+
 type RoutingError = object of CatchableError
 
-proc dispatchRoute*(r: Router, path: Path, ctx: Context) {.async.} =
+proc dispatchRoute*(r: Router, cfg: ServerConfig, path: Path, ctx: Context) {.async.} =
   let searchResults = r.routeTrees[ctx.req.action].search(path, ctx.params)
   if searchResults.node == nil or not searchResults.matched:
-    raise newException(RoutingError, "Could not match route")
+    if cfg.defaultHandler != nil:
+      await cfg.defaultHandler(ctx)
+    else:
+      raise newException(RoutingError, "Could not match route")
+    return
 
   var skip = false
 

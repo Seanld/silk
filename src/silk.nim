@@ -10,6 +10,7 @@ import ./silk/headers
 import ./silk/context
 import ./silk/router
 import ./silk/middleware
+import ./silk/sugar
 
 export tables.`[]`, tables.`[]=`
 export nativesockets.Port
@@ -21,6 +22,7 @@ export context
 export router
 export serverconfig
 export middleware
+export sugar
 
 type Server* = ref object
   config*: ServerConfig
@@ -79,7 +81,7 @@ proc dispatchClient(s: Server, client: AsyncSocket) {.async.} =
 
   # Dispatch context to router to obtain a relevant `Response`.
   if not skip:
-    await s.router.dispatchRoute(req.path, ctx)
+    await s.router.dispatchRoute(s.config, req.path, ctx)
 
   # Send response through middleware pipeline.
   for mw in s.middleware:

@@ -22,7 +22,8 @@ proc `$`*(h: Response): string =
   for k, v in pairs(h.headerFields):
     responseHeader.add(k & ": " & v & "\r\n")
 
-  responseHeader.add("\r\n" & h.content)
+  if h.content != "":
+    responseHeader.add("\r\n" & h.content)
 
   return responseHeader
 

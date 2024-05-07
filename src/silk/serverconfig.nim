@@ -6,6 +6,13 @@
 from std/math import `^`
 from std/nativesockets import Port
 
+import ./context
+import ./status
+import ./sugar
+
+handler defaultHandler:
+  ctx.noContent(STATUS_NOT_FOUND)
+
 type ServerConfig* = object
   host*: string
   port*: Port
@@ -18,3 +25,5 @@ type ServerConfig* = object
   # When `true`, keep program alive, and log errors to loggers. If `false`,
   # let the error kill the program.
   keepAlive* = true
+
+  defaultHandler* = defaultHandler
