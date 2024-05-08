@@ -11,7 +11,7 @@ import ./serverconfig
 import ./sugar
 
 type PathParams = TableRef[string, string]
-type RouteHandler* = proc(ctx: Context) {.async.}
+type RouteHandler* = proc(ctx: Context) {.async, gcsafe.}
 type RouterEntryHandle = tuple[handler: RouteHandler, middleware: seq[Middleware]]
 
 type Node = ref object
@@ -129,7 +129,7 @@ proc defaultHandler(ctx: Context) {.async.} =
 
 type RoutingError = object of CatchableError
 
-proc dispatchRoute*(r: Router, cfg: ServerConfig, path: Path, ctx: Context) {.async.} =
+proc dispatchRoute*(r: Router, cfg: ServerConfig, path: Path, ctx: Context) {.async, gcsafe.} =
   let searchResults = r.routeTrees[ctx.req.action].search(path, ctx.params)
   if searchResults.node == nil or not searchResults.matched:
     if cfg.defaultHandler != nil:

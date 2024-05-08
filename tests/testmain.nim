@@ -18,7 +18,6 @@ var serv = newServer(
     useStaticMiddleware({
       "/img": "./tests/img",
     }),
-    useCompressionMiddleware(),
   ],
 )
 

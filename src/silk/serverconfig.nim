@@ -27,3 +27,5 @@ type ServerConfig* = object
   keepAlive* = true
 
   defaultHandler* = defaultHandler
+
+  threads* = 0
