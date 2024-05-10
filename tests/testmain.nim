@@ -1,7 +1,6 @@
 import std/paths
 import std/logging
 import std/strutils
-from std/strutils import parseBool
 
 when compileOption("profiler"):
   import std/nimprof
@@ -47,7 +46,6 @@ serv.GET(
       ctx.sendString "Viewing post"
 )
 serv.GET("/hello/{blahparam}/wompus/test", handler do: ctx.sendString "yo mama")
-
 
 when compileOption("profiler"):
   enableProfiling()

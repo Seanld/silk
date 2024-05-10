@@ -32,7 +32,7 @@ proc newStaticMiddleware*(routes: StaticRouteTableInit): StaticMiddleware =
 proc useStaticMiddleware*(routes: StaticRouteTableInit): Middleware =
   newStaticMiddleware(routes).Middleware
 
-method processRequest*(m: StaticMiddleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.async.} =
+method processRequest*(m: StaticMiddleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.async, gcsafe.} =
   for route in m.routes:
     let sandboxDir = Path(route.virtualPath)
     if req.path.isRelativeTo(sandboxDir):
@@ -47,5 +47,5 @@ method processRequest*(m: StaticMiddleware, ctx: Context, req: Request): Future[
           discard
   return NORMAL
 
-method processResponse*(m: StaticMiddleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.async.} =
+method processResponse*(m: StaticMiddleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.async, gcsafe.} =
   discard

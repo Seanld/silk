@@ -28,4 +28,4 @@ type ServerConfig* = object
 
   defaultHandler* = defaultHandler
 
-  threads* = 0
+  threads* = 1

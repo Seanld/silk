@@ -9,7 +9,8 @@ import std/uri
 import ./headers
 import ./status
 
-let MIME_TYPES = newMimetypes()
+var MIME_TYPES: ptr MimeDB = cast[ptr MimeDB](alloc(MimeDB.sizeOf))
+MIME_TYPES[] = newMimetypes()
 
 type Context* = ref object
   conn*: AsyncSocket
@@ -41,12 +42,12 @@ proc sendString*(ctx: Context, str: string, mime: string = "text/plain", status 
   resp.headerFields["Content-Length"] = $str.len
   ctx.resp = resp
 
-proc getFileMimetype(path: string): string =
+proc getFileMimetype(path: string): string {.gcsafe.} =
   let asPath = Path(path)
   let (_, _, ext) = asPath.splitFile()
   if ext == "":
     raise newException(Exception, "Mimetype required for sendFile (not given or found)")
-  return MIME_TYPES.getMimetype(ext)
+  return MIME_TYPES[].getMimetype(ext)
 
 proc sendFile*(ctx: Context, path: string, mime: string = "", status = STATUS_OK) =
   ## `mime` can be left empty, and mimetype will be recognized
@@ -57,7 +58,7 @@ proc sendFile*(ctx: Context, path: string, mime: string = "", status = STATUS_OK
     actualMime = getFileMimetype(path)
   ctx.sendString(readFile(path), actualMime, status)
 
-proc sendFileAsync*(ctx: Context, path: string, mime: string = "", status = STATUS_OK) {.async.} =
+proc sendFileAsync*(ctx: Context, path: string, mime: string = "", status = STATUS_OK) {.async, gcsafe.} =
   ## Same as `sendFile`, but asynchronous.
   var actualMime = mime
   if mime == "":

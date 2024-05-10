@@ -25,14 +25,14 @@ proc newMsgLoggingMiddleware*(setting: MsgLoggingMiddlewareSetting = lmsMinimal)
 proc useMsgLoggingMiddleware*(setting: MsgLoggingMiddlewareSetting = lmsMinimal): Middleware =
   newMsgLoggingMiddleware(setting).Middleware
 
-method processRequest*(m: MsgLoggingMiddleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.async.} =
+method processRequest*(m: MsgLoggingMiddleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.async, gcsafe.} =
   var msg = ""
   case m.setting:
     of lmsMinimal, lmsVerbose:
       msg = &"-> {req.remoteAddr} requested {$req.uri}"
   info(msg)
 
-method processResponse*(m: MsgLoggingMiddleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.async.} =
+method processResponse*(m: MsgLoggingMiddleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.async, gcsafe.} =
   var msg = ""
   case m.setting:
     of lmsMinimal, lmsVerbose:

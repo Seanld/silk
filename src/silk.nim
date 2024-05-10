@@ -2,6 +2,7 @@ import std/asyncnet
 import std/asyncdispatch
 import std/logging
 import std/tables
+import std/typedthreads
 from nativesockets import Port
 
 import ./silk/serverconfig
@@ -24,39 +25,30 @@ export serverconfig
 export middleware
 export sugar
 
-type Worker = tuple[thread: ref Thread[void], connChan: ref Channel[AsyncSocket]]
+type
+  Server* = ref object
+    config*: ServerConfig
 
-type Server* = ref object
-  config*: ServerConfig
+    # Manages routing of paths to handlers.
+    router*: Router
 
-  # Manages routing of paths to handlers.
-  router*: Router
+    loggers: seq[Logger]
 
-  loggers: seq[Logger]
+    # Active middleware.
+    middleware*: seq[Middleware]
 
-  # Active middleware.
-  middleware*: seq[Middleware]
-
-  workers: seq[Worker]
+    workers: seq[ref Thread[Server]]
+    workQueue = new Channel[AsyncSocket]
 
 proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger], middleware: seq[Middleware] = @[]): Server =
   for l in loggers:
     addHandler(l)
-
-  var workers = newSeq[Worker]()
-
-  for n in 0 ..< config.threads:
-    workers.add((
-      thread: new Thread[void],
-      connChan: new Channel[AsyncSocket],
-    ))
 
   Server(
     config: config,
     router: newRouter(),
     loggers: loggers,
     middleware: middleware,
-    workers: workers,
   )
 
 proc addLogger*(s: Server, l: Logger) =
@@ -117,9 +109,7 @@ proc dispatchClientPrecheck(s: Server, client: AsyncSocket) {.async, gcsafe.} =
     client.close()
     error(getCurrentExceptionMsg())
 
-type WorkerLoopArg = tuple[s: Server, connChan: ref Channel[AsyncSocket]]
-
-proc workerLoop(args: WorkerLoopArg) {.thread.} =
+proc workerLoop(s: Server) {.thread.} =
   ## The main loop each worker runs. New incoming connections are communicated
   ## over the worker's channel from the main thread. When one is received, it
   ## is dispatched asynchronously, to allow for multiple connections to be
@@ -127,9 +117,9 @@ proc workerLoop(args: WorkerLoopArg) {.thread.} =
   ## *and* concurrency, for maximum throughput.
 
   while true:
-    let tried = args.connChan[].tryRecv()
+    let tried = s.workQueue[].tryRecv()
     if tried.dataAvailable:
-      asyncCheck args.s.dispatchClientPrecheck(tried.msg)
+      asyncCheck s.dispatchClientPrecheck(tried.msg)
 
   runForever()
 
@@ -142,33 +132,26 @@ proc serve(s: Server) {.async.} =
   server.bindAddr(s.config.port, s.config.host)
   server.listen()
 
-  # Which worker will be dispatched to next. This enables simple
-  # round-robin scheduling, which is adequate for now.
-  var nextWorker = 0
-
+  var received: bool
   while true:
     let client = await server.accept()
-    # Try to delegate new connection to every worker until
-    # one successfully receives it.
-    for i in 0 ..< s.config.threads:
-      var
-        workerToTryIdx = (nextWorker + i) mod (s.workers.len - 1)
-        conn = s.workers[workerToTryIdx].connChan
-        received = conn[].trySend(client)
-      if received:
-        break
-    nextWorker += 1
+    received = s.workQueue[].trySend(client)
+    if received:
+      break
 
 proc start*(s: Server) =
   ## Start HTTP server and run infinitely.
+
+  s.workQueue[].open()
 
   # Init all middleware.
   for m in s.middleware:
     m.init()
 
-  for w in s.workers:
-    w.connChan[].open()
-    createThread(w.thread[], workerLoop, (s, w.connChan))
+  for wn in 0 ..< s.config.threads:
+    var newThread = new Thread[Server]
+    createThread(newThread[], workerLoop, s)
+    s.workers.add(newThread)
 
   asyncCheck s.serve()
   runForever()
