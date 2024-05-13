@@ -38,7 +38,7 @@ type
     middleware*: seq[Middleware]
 
     workers: seq[ref Thread[Server]]
-    workQueue = new Channel[AsyncSocket]
+    workQueue: ref Channel[AsyncSocket]
 
 proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger], middleware: seq[Middleware] = @[]): Server =
   for l in loggers:
@@ -49,6 +49,7 @@ proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger], mi
     router: newRouter(),
     loggers: loggers,
     middleware: middleware,
+    workQueue: new Channel[AsyncSocket],
   )
 
 proc addLogger*(s: Server, l: Logger) =
@@ -104,6 +105,7 @@ proc dispatchClientPrecheck(s: Server, client: AsyncSocket) {.async, gcsafe.} =
   try:
     await s.dispatchClient(client)
   except:
+    echo getCurrentExceptionMsg()
     if not s.config.keepAlive:
       raise
     client.close()
@@ -117,9 +119,9 @@ proc workerLoop(s: Server) {.thread.} =
   ## *and* concurrency, for maximum throughput.
 
   while true:
-    let tried = s.workQueue[].tryRecv()
-    if tried.dataAvailable:
-      asyncCheck s.dispatchClientPrecheck(tried.msg)
+    let msg = s.workQueue[].recv()
+    echo repr(msg)
+    asyncCheck s.dispatchClientPrecheck(msg)
 
   runForever()
 
@@ -132,12 +134,12 @@ proc serve(s: Server) {.async.} =
   server.bindAddr(s.config.port, s.config.host)
   server.listen()
 
-  var received: bool
   while true:
     let client = await server.accept()
-    received = s.workQueue[].trySend(client)
-    if received:
-      break
+    try:
+      s.workQueue[].send(client)
+    except:
+      discard
 
 proc start*(s: Server) =
   ## Start HTTP server and run infinitely.
