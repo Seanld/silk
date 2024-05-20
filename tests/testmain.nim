@@ -12,8 +12,8 @@ import silk/middleware/staticserve
 
 var serv = newServer(
   ServerConfig(host: "0.0.0.0", port: Port(8080)),
-  @[newFileLogger("log.txt").Logger],
-  @[
+  # @[newFileLogger("log.txt").Logger],
+  middleware = @[
     useStaticMiddleware({
       "/img": "./tests/img",
     }),

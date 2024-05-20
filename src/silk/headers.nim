@@ -1,10 +1,9 @@
-import std/asyncnet
-import std/asyncdispatch
 import std/tables
 import std/strutils
 import std/times
 import std/paths
 import std/uri
+import std/net
 
 import ./status
 
@@ -16,7 +15,7 @@ type Response* = ref object
   headerFields*: HeaderTable
   content*: string
 
-proc `$`*(h: Response): string =
+proc `$`*(h: Response): string {.gcsafe.} =
   var responseHeader = h.protocol & " " & $h.status.ord() & " " & STATUS_CODE_MAPPING[h.status.ord()] & "\r\n"
 
   for k, v in pairs(h.headerFields):
@@ -85,24 +84,24 @@ proc parseReqHeader*(reqHeaderStr: string): Request =
 
   return newHeader
 
-proc recvReqHeaderStr*(client: AsyncSocket): Future[string] {.async.} =
+proc recvReqHeaderStr*(client: Socket): string =
   var
     result = ""
     line = "" # Starting with empty string skips while loop.
   while true:
-    line = await client.recvLine(maxLength = 1024)
+    line = client.recvLine(maxLength = 1024)
     if line == "\r\n" or line == "":
       break
     result.add(line & "\r\n")
   return result
 
-# proc recvReqContentStr*(client: AsyncSocket, contentLength: int): Future[string] {.async.} =
+# proc recvReqContentStr*(client: Socket, contentLength: int): Future[string] =
 #   ## Receive content body as string into `header.content`.
 
 type NotImplementedDefect = object of Defect
 
-proc recvReq*(client: AsyncSocket, maxContentLen: int): Future[Request] {.async.} =
-  var req = parseReqHeader(await client.recvReqHeaderStr())
+proc recvReq*(client: Socket, maxContentLen: int): Request =
+  var req = parseReqHeader client.recvReqHeaderStr()
 
   # Add requestee's address.
   req.remoteAddr = client.getPeerAddr()[0]
@@ -110,7 +109,7 @@ proc recvReq*(client: AsyncSocket, maxContentLen: int): Future[Request] {.async.
   # Receive content body if one is attached.
   if req.headerFields.hasKey("Content-Length"):
     let contentLength = parseInt(req.headerFields["Content-Length"])
-    req.content = await client.recv(contentLength)
+    req.content = client.recv(contentLength)
 
     if req.headerFields.hasKey("Transfer-Encoding"):
       let encoding = req.headerFields["Transfer-Encoding"]

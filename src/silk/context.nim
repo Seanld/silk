@@ -1,6 +1,4 @@
-import std/asyncnet
-import std/asyncfile
-import std/asyncdispatch
+import std/net
 import std/tables
 import std/paths
 import std/mimetypes
@@ -13,12 +11,12 @@ var MIME_TYPES: ptr MimeDB = cast[ptr MimeDB](alloc(MimeDB.sizeOf))
 MIME_TYPES[] = newMimetypes()
 
 type Context* = ref object
-  conn*: AsyncSocket
+  conn*: ptr Socket
   req*: Request
   resp*: Response
   params*: TableRef[string, string]
 
-proc newContext*(conn: AsyncSocket, req: Request): Context =
+proc newContext*(conn: ptr Socket, req: Request): Context =
   return Context(
     conn: conn,
     req: req,
@@ -42,7 +40,7 @@ proc sendString*(ctx: Context, str: string, mime: string = "text/plain", status 
   resp.headerFields["Content-Length"] = $str.len
   ctx.resp = resp
 
-proc getFileMimetype(path: string): string {.gcsafe.} =
+proc getFileMimetype(path: string): string =
   let asPath = Path(path)
   let (_, _, ext) = asPath.splitFile()
   if ext == "":
@@ -57,12 +55,3 @@ proc sendFile*(ctx: Context, path: string, mime: string = "", status = STATUS_OK
   if mime == "":
     actualMime = getFileMimetype(path)
   ctx.sendString(readFile(path), actualMime, status)
-
-proc sendFileAsync*(ctx: Context, path: string, mime: string = "", status = STATUS_OK) {.async, gcsafe.} =
-  ## Same as `sendFile`, but asynchronous.
-  var actualMime = mime
-  if mime == "":
-    actualMime = getFileMimetype(path)
-  let af = openAsync(path)
-  let data = await af.readAll()
-  ctx.sendString(data, actualMime, status)

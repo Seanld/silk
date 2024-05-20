@@ -6,8 +6,6 @@
 # possible. Will have to come up with some clean approach as
 # a workaround.
 
-import std/asyncdispatch
-
 import ./headers
 import ./context
 
@@ -33,7 +31,7 @@ proc init*(m: Middleware) =
 type ProcessingExitStatus* = enum
   NORMAL, SKIP_ROUTING
 
-method processRequest*(m: Middleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.base, async, gcsafe.} =
+method processRequest*(m: Middleware, ctx: Context, req: Request): ProcessingExitStatus {.base, gcsafe.} =
   ## Called by the `Server` instance when a request is inbound.
   ## Operations on the request (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is handled
@@ -41,7 +39,7 @@ method processRequest*(m: Middleware, ctx: Context, req: Request): Future[Proces
   ## `ProcessStatus` indicates to the `Server` how to proceed after.
   discard
 
-method processResponse*(m: Middleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.base, async, gcsafe.} =
+method processResponse*(m: Middleware, ctx: Context, resp: Response): ProcessingExitStatus {.base, gcsafe.} =
   ## Called by the `Server` instance when a response is outbound.
   ## Operations on the response (header+body) string can be done here.
   ## The result is passed on to the next middleware, or is sent to

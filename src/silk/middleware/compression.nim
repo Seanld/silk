@@ -1,5 +1,4 @@
 import std/tables
-import std/asyncdispatch
 import zippy
 
 import ../middleware
@@ -27,10 +26,10 @@ proc newCompressionMiddleware*(level: int = BestSpeed, format: CompressedDataFor
 proc useCompressionMiddleware*(level: int = BestSpeed, format: CompressedDataFormat = dfGzip): Middleware =
   newCompressionMiddleware(level, format).Middleware
 
-method processRequest*(m: CompressionMiddleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.async, gcsafe.} =
+method processRequest*(m: CompressionMiddleware, ctx: Context, req: Request): ProcessingExitStatus {.gcsafe.} =
   discard
 
-method processResponse*(m: CompressionMiddleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.async, gcsafe.} =
+method processResponse*(m: CompressionMiddleware, ctx: Context, resp: Response): ProcessingExitStatus {.gcsafe.} =
   resp.content = resp.content.compress(m.level, m.format)
   resp.headerFields["Content-Encoding"] = FORMAT_MAPPING[m.format]
   resp.headerFields["Content-Length"] = $resp.content.len

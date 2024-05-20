@@ -4,7 +4,6 @@
 # more optimizations can be done without spaghettifying the core logic.
 
 import std/paths
-import std/asyncdispatch
 import std/os
 
 import ../middleware
@@ -32,7 +31,7 @@ proc newStaticMiddleware*(routes: StaticRouteTableInit): StaticMiddleware =
 proc useStaticMiddleware*(routes: StaticRouteTableInit): Middleware =
   newStaticMiddleware(routes).Middleware
 
-method processRequest*(m: StaticMiddleware, ctx: Context, req: Request): Future[ProcessingExitStatus] {.async, gcsafe.} =
+method processRequest*(m: StaticMiddleware, ctx: Context, req: Request): ProcessingExitStatus {.gcsafe.} =
   for route in m.routes:
     let sandboxDir = Path(route.virtualPath)
     if req.path.isRelativeTo(sandboxDir):
@@ -41,11 +40,11 @@ method processRequest*(m: StaticMiddleware, ctx: Context, req: Request): Future[
         finalPath = (Path(route.localPath) / relPath).string
       if fileExists(finalPath):
         try:
-          await ctx.sendFileAsync(finalPath)
+          ctx.sendFile(finalPath)
           return SKIP_ROUTING
         except OSError:
           discard
   return NORMAL
 
-method processResponse*(m: StaticMiddleware, ctx: Context, resp: Response): Future[ProcessingExitStatus] {.async, gcsafe.} =
+method processResponse*(m: StaticMiddleware, ctx: Context, resp: Response): ProcessingExitStatus {.gcsafe.} =
   discard

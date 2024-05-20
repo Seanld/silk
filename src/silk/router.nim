@@ -1,17 +1,14 @@
 import std/tables
-import std/asyncdispatch
 import std/paths
-from std/strutils import split, contains
 
 import ./context
 import ./headers
 import ./middleware
 import ./status
 import ./serverconfig
-import ./sugar
 
 type PathParams = TableRef[string, string]
-type RouteHandler* = proc(ctx: Context) {.async, gcsafe.}
+type RouteHandler* = proc(ctx: Context) {.gcsafe.}
 type RouterEntryHandle = tuple[handler: RouteHandler, middleware: seq[Middleware]]
 
 type Node = ref object
@@ -124,16 +121,16 @@ proc DELETE*(r: Router, path: string, handler: RouteHandler, middleware: seq[Mid
   var newPath = Path(path)
   r.registerHandlerRoute("DELETE", newPath, handler, middleware)
 
-proc defaultHandler(ctx: Context) {.async.} =
+proc defaultHandler(ctx: Context) =
   ctx.noContent(STATUS_NOT_FOUND)
 
 type RoutingError = object of CatchableError
 
-proc dispatchRoute*(r: Router, cfg: ServerConfig, path: Path, ctx: Context) {.async, gcsafe.} =
+proc dispatchRoute*(r: Router, cfg: ServerConfig, path: Path, ctx: Context) {.gcsafe.} =
   let searchResults = r.routeTrees[ctx.req.action].search(path, ctx.params)
   if searchResults.node == nil or not searchResults.matched:
     if cfg.defaultHandler != nil:
-      await cfg.defaultHandler(ctx)
+      cfg.defaultHandler(ctx)
     else:
       raise newException(RoutingError, "Could not match route")
     return
@@ -141,13 +138,13 @@ proc dispatchRoute*(r: Router, cfg: ServerConfig, path: Path, ctx: Context) {.as
   var skip = false
 
   for mw in searchResults.node.handle.middleware:
-    let result = await mw.processRequest(ctx, ctx.req)
+    let result = mw.processRequest(ctx, ctx.req)
     if result == SKIP_ROUTING:
       skip = true
       break
 
   if not skip:
-    await searchResults.node.handle.handler(ctx)
+    searchResults.node.handle.handler(ctx)
 
   for mw in searchResults.node.handle.middleware:
-    discard await mw.processResponse(ctx, ctx.resp)
+    discard mw.processResponse(ctx, ctx.resp)
