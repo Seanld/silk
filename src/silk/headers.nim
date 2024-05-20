@@ -86,22 +86,18 @@ proc parseReqHeader*(reqHeaderStr: string): Request =
 
 proc recvReqHeaderStr*(client: Socket): string =
   var
-    result = ""
     line = "" # Starting with empty string skips while loop.
   while true:
     line = client.recvLine(maxLength = 1024)
+    echo "'", line, "'"
     if line == "\r\n" or line == "":
       break
     result.add(line & "\r\n")
-  return result
-
-# proc recvReqContentStr*(client: Socket, contentLength: int): Future[string] =
-#   ## Receive content body as string into `header.content`.
 
 type NotImplementedDefect = object of Defect
 
 proc recvReq*(client: Socket, maxContentLen: int): Request =
-  var req = parseReqHeader client.recvReqHeaderStr()
+  var req = parseReqHeader(recvReqHeaderStr(client))
 
   # Add requestee's address.
   req.remoteAddr = client.getPeerAddr()[0]

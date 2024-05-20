@@ -1,4 +1,5 @@
 import malebolgia
+
 import std/logging
 import std/tables
 import std/net
@@ -35,6 +36,8 @@ type
     # Active middleware.
     middleware*: seq[Middleware]
 
+    connChan: Channel[Socket]
+
 proc addLogger*(s: Server, l: Logger) =
   s.loggers.add(l)
   addHandler(l)
@@ -57,14 +60,14 @@ proc PUT*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middle
 proc DELETE*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   s.router.DELETE(path, handler, middleware)
 
-proc dispatchClient(s: Server, client: ptr Socket) {.gcsafe.} =
+proc dispatchClient(s: Server, client: Socket) {.gcsafe.} =
   ## Executed as soon as a new connection is made.
   var req: Request
   try:
-    req = client[].recvReq(s.config.maxContentLen)
+    req = client.recvReq(s.config.maxContentLen)
   except EmptyRequestDefect:
     # If request is empty (no data was sent), close connection early.
-    client[].close()
+    client.close()
     return
 
   var ctx = newContext(client, req)
@@ -87,20 +90,19 @@ proc dispatchClient(s: Server, client: ptr Socket) {.gcsafe.} =
     discard mw.processResponse(ctx, ctx.resp)
 
   # Send response to client.
-  client[].send($ctx.resp)
-  client[].close()
+  client.send($ctx.resp)
+  client.close()
 
-proc dispatchClientPrecheck(s: ptr Server, client: ptr Socket) {.gcsafe.} =
+proc dispatchClientPrecheck(s: Server, client: Socket) {.gcsafe.} =
   ## Handles exceptions from entire request/route/response
   ## dispatching process. Necessary for keep-alive.
 
   try:
-    s[].dispatchClient(client)
+    s.dispatchClient(client)
   except:
-    echo getCurrentExceptionMsg()
-    if not s[].config.keepAlive:
+    if not s.config.keepAlive:
       raise
-    client[].close()
+    client.close()
     error(getCurrentExceptionMsg())
 
 proc start*(s: Server) =
@@ -121,4 +123,4 @@ proc start*(s: Server) =
 
   while true:
     sock.accept(client)
-    mast.spawn dispatchClientPrecheck(addr s, addr client)
+    mast.spawn s.dispatchClientPrecheck(client)

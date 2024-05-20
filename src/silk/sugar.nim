@@ -1,8 +1,4 @@
-import std/asyncdispatch
-
 import ./context
-
-export asyncdispatch
 
 template handler*(code: untyped): untyped =
   proc(ctx{.inject.}: Context) = code

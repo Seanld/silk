@@ -11,12 +11,12 @@ var MIME_TYPES: ptr MimeDB = cast[ptr MimeDB](alloc(MimeDB.sizeOf))
 MIME_TYPES[] = newMimetypes()
 
 type Context* = ref object
-  conn*: ptr Socket
+  conn*: Socket
   req*: Request
   resp*: Response
   params*: TableRef[string, string]
 
-proc newContext*(conn: ptr Socket, req: Request): Context =
+proc newContext*(conn: Socket, req: Request): Context =
   return Context(
     conn: conn,
     req: req,
