@@ -11,7 +11,7 @@ import silk/middleware/logging
 import silk/middleware/staticserve
 
 var serv = newServer(
-  ServerConfig(host: "0.0.0.0", port: Port(8080)),
+  ServerConfig(host: "0.0.0.0", port: Port(8080), workers: 2),
   # @[newFileLogger("log.txt").Logger],
   middleware = @[
     useStaticMiddleware({

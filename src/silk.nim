@@ -1,5 +1,3 @@
-import malebolgia
-
 import std/logging
 import std/tables
 import std/net
@@ -105,6 +103,18 @@ proc dispatchClientPrecheck(s: Server, client: Socket) {.gcsafe.} =
     client.close()
     error(getCurrentExceptionMsg())
 
+proc workerLoop(s: Server) =
+  var sock = newSocket()
+  sock.setSockOpt(OptReuseAddr, true)
+  sock.setSockOpt(OptReusePort, true)
+  sock.bindAddr(s.config.port, s.config.host)
+  sock.listen()
+
+  var client: Socket
+  while true:
+    sock.accept(client)
+    s.dispatchClientPrecheck(client)
+
 proc start*(s: Server) =
   ## Start HTTP server and run infinitely.
 
@@ -112,15 +122,9 @@ proc start*(s: Server) =
   for m in s.middleware:
     m.init()
 
-  var sock = newSocket()
-  sock.setSockOpt(OptReuseAddr, true)
-  sock.bindAddr(s.config.port, s.config.host)
-  sock.listen()
+  var workers = newSeq[Thread[Server]](s.config.workers)
 
-  var
-    mast = createMaster()
-    client: Socket
+  for w in 0 ..< s.config.workers:
+    createThread[Server](workers[w], workerLoop, s)
 
-  while true:
-    sock.accept(client)
-    mast.spawn s.dispatchClientPrecheck(client)
+  joinThreads(workers)

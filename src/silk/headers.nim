@@ -89,7 +89,6 @@ proc recvReqHeaderStr*(client: Socket): string =
     line = "" # Starting with empty string skips while loop.
   while true:
     line = client.recvLine(maxLength = 1024)
-    echo "'", line, "'"
     if line == "\r\n" or line == "":
       break
     result.add(line & "\r\n")
