@@ -1,6 +1,7 @@
 import std/paths
 import std/logging
 import std/strutils
+from std/math import trunc, sqrt, ceil
 
 when compileOption("profiler"):
   import std/nimprof
@@ -46,6 +47,22 @@ serv.GET(
       ctx.sendString "Viewing post"
 )
 serv.GET("/hello/{blahparam}/wompus/test", handler do: ctx.sendString "yo mama")
+
+proc isPrime(num: int): bool =
+  for n in 2 ..< num - 1:
+    if num mod n == 0:
+      return false
+  return true
+
+serv.GET(
+  "/isprime/{number}",
+  handler do:
+    let number = parseInt(ctx.params["number"])
+    if isPrime(number):
+      ctx.noContent(STATUS_OK)
+    else:
+      ctx.noContent(STATUS_INTERNAL_SERVER_ERROR)
+)
 
 when compileOption("profiler"):
   enableProfiling()
