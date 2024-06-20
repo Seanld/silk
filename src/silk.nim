@@ -103,10 +103,11 @@ proc dispatchClientPrecheck(s: Server, client: Socket) {.gcsafe.} =
     client.close()
     error(getCurrentExceptionMsg())
 
-proc workerLoop(s: Server) =
+proc workerLoop(s: Server) {.thread.} =
   var sock = newSocket()
   sock.setSockOpt(OptReuseAddr, true)
   sock.setSockOpt(OptReusePort, true)
+  sock.setSockOpt(OptNoDelay, true, level=IPPROTO_TCP.cint)
   sock.bindAddr(s.config.port, s.config.host)
   sock.listen()
 
