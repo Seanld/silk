@@ -29,25 +29,24 @@ type
     # Manages routing of paths to handlers.
     router*: Router
 
-    loggers: seq[Logger]
+    loggers*: seq[Logger]
+    logFilter*: Level
 
     # Active middleware.
     middleware*: seq[Middleware]
 
-    connChan: Channel[Socket]
-
 proc addLogger*(s: Server, l: Logger) =
   s.loggers.add(l)
-  addHandler(l)
 
-proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger], middleware: seq[Middleware] = @[]): Server =
+proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger], logFilter = lvlInfo, middleware: seq[Middleware] = @[]): Server =
   result = Server(
     config: config,
     router: newRouter(),
     middleware: middleware,
+    logFilter: logFilter,
   )
   for l in loggers:
-    result.addLogger(l)
+    result.loggers.add(l)
 
 proc GET*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   s.router.GET(path, handler, middleware)
@@ -104,6 +103,11 @@ proc dispatchClientPrecheck(s: Server, client: Socket) {.gcsafe.} =
     error(getCurrentExceptionMsg())
 
 proc workerLoop(s: Server) {.thread.} =
+  # Register log handlers per-thread.
+  for logger in s.loggers:
+    addHandler(logger)
+  setLogFilter(s.logFilter)
+
   var sock = newSocket()
   sock.setSockOpt(OptReuseAddr, true)
   sock.setSockOpt(OptReusePort, true)

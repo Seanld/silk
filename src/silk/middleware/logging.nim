@@ -25,18 +25,16 @@ proc useMsgLoggingMiddleware*(setting: MsgLoggingMiddlewareSetting = lmsMinimal)
   newMsgLoggingMiddleware(setting).Middleware
 
 method processRequest*(m: MsgLoggingMiddleware, ctx: Context, req: Request): ProcessingExitStatus {.gcsafe.} =
-  var msg = ""
   case m.setting:
     of lmsMinimal, lmsVerbose:
-      msg = &"-> {req.remoteAddr} requested {$req.uri}"
-  info(msg)
+      info(&"-> {req.remoteAddr} requested {$req.uri}")
+  return ProcessingExitStatus.NORMAL
 
 method processResponse*(m: MsgLoggingMiddleware, ctx: Context, resp: Response): ProcessingExitStatus {.gcsafe.} =
-  var msg = ""
   case m.setting:
     of lmsMinimal, lmsVerbose:
       let
         statusNum = resp.status.ord()
         statusName = STATUS_CODE_MAPPING[statusNum]
-      msg = &"<- {statusName} {statusNum}"
-  info(msg)
+      info(&"<- {statusName} {statusNum}")
+  return ProcessingExitStatus.NORMAL
