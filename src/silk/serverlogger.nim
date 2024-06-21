@@ -17,11 +17,16 @@ type ServerLogger* = ref object
   ## need to be handled in order, from multiple threads.
   logQueue*: Channel[LogItem]
 
-proc newServerLogger*(): ServerLogger =
+# Even though it seems unintuitive to have such a useless
+# constructor, the compiler complains about the channel if
+# it's not done this way.
+proc newServerLogger*(loggers = @[newConsoleLogger().Logger],
+                      logFilter = lvlInfo,
+                      logQueue = Channel[LogItem]()): ServerLogger =
   ServerLogger(
-    loggers: @[newConsoleLogger().Logger],
-    logFilter: lvlInfo,
-    logQueue: Channel[LogItem](),
+    loggers: loggers,
+    logFilter: logFilter,
+    logQueue: logQueue,
   )
 
 proc logLoop*(sl: ServerLogger) {.thread.} =
