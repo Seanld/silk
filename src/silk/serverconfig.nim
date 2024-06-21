@@ -18,8 +18,6 @@ type ServerConfig* = object
   host*: string
   port*: Port
 
-  ## How many clients to handle at one time, before new connections are dropped.
-  maxClients*: int = 100
   ## Limit content body size to a max size of 256 megabytes by default.
   maxContentLen*: int = 2^28
 
