@@ -9,6 +9,7 @@ from std/nativesockets import Port
 import ./context
 import ./status
 import ./sugar
+import ./serverlogger
 
 handler defaultHandler:
   ctx.noContent(STATUS_NOT_FOUND)
@@ -31,3 +32,5 @@ type ServerConfig* = object
   ## How many worker threads to create. Each worker can handle a
   ## connection at a time.
   workers* = 1
+
+  serverLogger*: ServerLogger

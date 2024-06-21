@@ -10,6 +10,7 @@ import ./silk/context
 import ./silk/router
 import ./silk/middleware
 import ./silk/sugar
+import ./silk/serverlogger
 
 export tables.`[]`, tables.`[]=`
 export nativesockets.Port
@@ -29,24 +30,15 @@ type
     # Manages routing of paths to handlers.
     router*: Router
 
-    loggers*: seq[Logger]
-    logFilter*: Level
-
     # Active middleware.
     middleware*: seq[Middleware]
 
-proc addLogger*(s: Server, l: Logger) =
-  s.loggers.add(l)
-
-proc newServer*(config: ServerConfig, loggers = @[newConsoleLogger().Logger], logFilter = lvlInfo, middleware: seq[Middleware] = @[]): Server =
+proc newServer*(config: ServerConfig, middleware: seq[Middleware] = @[]): Server =
   result = Server(
     config: config,
     router: newRouter(),
     middleware: middleware,
-    logFilter: logFilter,
   )
-  for l in loggers:
-    result.loggers.add(l)
 
 proc GET*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   s.router.GET(path, handler, middleware)
@@ -104,10 +96,6 @@ proc dispatchClientPrecheck(s: Server, client: Socket) {.gcsafe.} =
 
 proc workerLoop(s: Server) {.thread.} =
   # Register log handlers per-thread.
-  for logger in s.loggers:
-    addHandler(logger)
-  setLogFilter(s.logFilter)
-
   var sock = newSocket()
   sock.setSockOpt(OptReuseAddr, true)
   sock.setSockOpt(OptReusePort, true)
@@ -126,6 +114,12 @@ proc start*(s: Server) =
   # Init all middleware.
   for m in s.middleware:
     m.init()
+
+  # Create logger thread if logging is enabled. Worker threads
+  # push log messages to a queue, which this thread churns through.
+  if s.config.serverLogger != nil and s.config.serverLogger.loggers.len > 0:
+    var logWorkerThread: Thread[ServerLogger]
+    createThread[ServerLogger](logWorkerThread, logLoop, s.config.serverLogger)
 
   var workers = newSeq[Thread[Server]](s.config.workers)
 

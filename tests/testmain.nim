@@ -1,7 +1,5 @@
 import std/paths
-import std/logging
 import std/strutils
-from std/math import trunc, sqrt, ceil
 
 when compileOption("profiler"):
   import std/nimprof
@@ -11,13 +9,20 @@ import silk/middleware/compression
 import silk/middleware/logging
 import silk/middleware/staticserve
 
+var sl = newServerLogger()
+
 var serv = newServer(
-  ServerConfig(host: "0.0.0.0", port: Port(8080), workers: 2),
-  # @[newFileLogger("log.txt").Logger],
+  ServerConfig(
+    host: "0.0.0.0",
+    port: Port(8080),
+    workers: 6,
+    serverLogger: sl,
+  ),
   middleware = @[
     useStaticMiddleware({
       "/img": "./tests/img",
     }),
+    useMsgLoggingMiddleware(sl),
   ],
 )
 
