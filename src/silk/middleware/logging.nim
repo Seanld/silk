@@ -33,9 +33,10 @@ proc useMsgLoggingMiddleware*(serverLogger: ServerLogger,
 method processRequest*(m: MsgLoggingMiddleware,
                        ctx: Context,
                        req: Request): ProcessingExitStatus {.gcsafe.} =
+  let remotePort = int(req.remotePort)
   case m.setting:
     of lmsMinimal, lmsVerbose:
-      m.serverLogger.log(&"{req.remoteAddr} -> {$req.uri}", lvlInfo)
+      m.serverLogger.log(&"{req.remoteAddr}:{remotePort} -> {$req.uri}", lvlInfo)
   return ProcessingExitStatus.NORMAL
 
 method processResponse*(m: MsgLoggingMiddleware,
