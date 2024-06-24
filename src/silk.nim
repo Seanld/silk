@@ -1,6 +1,7 @@
 import std/logging
 import std/tables
 import std/net
+import std/paths
 from nativesockets import Port
 
 import ./silk/serverconfig
@@ -48,6 +49,19 @@ proc PUT*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middle
   s.router.PUT(path, handler, middleware)
 proc DELETE*(s: Server, path: string, handler: RouteHandler, middleware: seq[Middleware] = @[]) =
   s.router.DELETE(path, handler, middleware)
+
+proc GET*(s: Server, path: string, dest: string, middleware: seq[Middleware] = @[]) =
+  ## Shorthand for GETing a file, to reduce handler definition boilerplate.
+  proc fileHandler(ctx: Context) {.gcsafe.} =
+    try:
+      ctx.sendFile Path(dest).string
+    except:
+      ctx.noContent(STATUS_INTERNAL_SERVER_ERROR)
+  s.router.GET(
+    path,
+    fileHandler,
+    middleware,
+  )
 
 proc dispatchClient(s: Server, client: Socket) {.gcsafe.} =
   ## Executed as soon as a new connection is made.
