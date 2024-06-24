@@ -30,6 +30,8 @@ proc newServerLogger*(loggers = @[newConsoleLogger().Logger],
   )
 
 proc logLoop*(sl: ServerLogger) {.thread.} =
+  ## Runs the logger thread event loop. Logs messages in queue
+  ## to every registered logger.
   sl.logQueue.open()
 
   for logger in sl.loggers:
@@ -42,6 +44,7 @@ proc logLoop*(sl: ServerLogger) {.thread.} =
     log(item.lvl, item.msg)
 
 proc log*(sl: ServerLogger, msg: string, level: Level) =
+  ## Dispatches a log message to the logger thread's message queue channel.
   sl.logQueue.send(
     LogItem(msg: msg, lvl: level)
   )

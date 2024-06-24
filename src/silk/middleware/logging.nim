@@ -47,6 +47,7 @@ method processResponse*(m: MsgLoggingMiddleware,
       let
         statusNum = resp.status.ord()
         statusName = STATUS_CODE_MAPPING[statusNum]
-        requesteeAddress = ctx.conn.getPeerAddr()[0]
-      m.serverLogger.log(&"{requesteeAddress} <- {statusNum} {statusName}", lvlInfo)
+        requesteeAddress = ctx.req.remoteAddr
+        requesteePort = int(ctx.req.remotePort)
+      m.serverLogger.log(&"{requesteeAddress}:{requesteePort} <- {statusNum} {statusName}", lvlInfo)
   return ProcessingExitStatus.NORMAL
