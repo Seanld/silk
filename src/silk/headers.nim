@@ -53,6 +53,7 @@ type Request* = ref object
   headerFields*: HeaderTable
   content*: string
   remoteAddr*: string
+  remotePort*: Port
 
 type EmptyRequestDefect* = object of Defect
 
@@ -79,7 +80,7 @@ proc parseReqHeader*(reqHeaderStr: string): Request =
     headerFields: headerFields,
   )
 
-  # Normalize the path so to eliminate edge cases in path formatting.
+  # Normalize the path to eliminate edge cases in path formatting.
   newHeader.path.normalizePath()
 
   return newHeader
@@ -99,7 +100,9 @@ proc recvReq*(client: Socket, maxContentLen: int): Request =
   var req = parseReqHeader(recvReqHeaderStr(client))
 
   # Add requestee's address.
-  req.remoteAddr = client.getPeerAddr()[0]
+  let peerAddrAndPort = client.getPeerAddr()
+  req.remoteAddr = peerAddrAndPort[0]
+  req.remotePort = peerAddrAndPort[1]
 
   # Receive content body if one is attached.
   if req.headerFields.hasKey("Content-Length"):
