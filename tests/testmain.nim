@@ -9,13 +9,15 @@ import silk/middleware/compression
 import silk/middleware/logging
 import silk/middleware/staticserve
 
-var sl = newServerLogger()
+var sl = newServerLogger(
+  @[newRollingFileLogger("test.log", maxLines = 20000).Logger],
+)
 
 var serv = newServer(
   ServerConfig(
     host: "0.0.0.0",
     port: Port(8080),
-    workers: 6,
+    workers: 12,
     serverLogger: sl,
   ),
   middleware = @[
@@ -27,6 +29,7 @@ var serv = newServer(
 )
 
 serv.GET("/", handler do: ctx.sendFile Path("./tests/index.html").string)
+serv.GET("/", "./tests/index.html")
 serv.POST(
   "/",
   handler do:

@@ -99,7 +99,6 @@ proc dispatchClient(s: Server, client: Socket) {.gcsafe.} =
 proc dispatchClientPrecheck(s: Server, client: Socket) {.gcsafe.} =
   ## Handles exceptions from entire request/route/response
   ## dispatching process. Necessary for keep-alive.
-
   try:
     s.dispatchClient(client)
   except:
