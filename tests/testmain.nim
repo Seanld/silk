@@ -17,7 +17,7 @@ var serv = newServer(
   ServerConfig(
     host: "0.0.0.0",
     port: Port(8080),
-    workers: 12,
+    workers: 4,
     serverLogger: sl,
   ),
   middleware = @[
