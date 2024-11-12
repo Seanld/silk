@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "packages": {
+    "zippy": {
+      "version": "0.10.12",
+      "vcsRevision": "007f70335dcd3a3ff2f9300f404ab22454dcc8c4",
+      "url": "https://github.com/guzba/zippy",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "88baafc3678bcd566f37efcb92b8e9357d75b294"
+      }
+    }
+  },
+  "tasks": {}
+}
